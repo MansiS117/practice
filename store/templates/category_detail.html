@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <header>
+        <h1>Books in {{ category.name }}</h1>
+    </header>
+    <main>
+        {% if books %}
+            <ul class="book-list">
+                {% for book in books %}
+                    <li class="book-item">
+                        <h2>{{ book.title }}</h2>
+                        <p><strong>Author:</strong> {{ book.author }}</p>
+                        <p>{{ book.description }}</p>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No books available in this category.</p>
+        {% endif %}
+    </main>
+</body>
+</html>
