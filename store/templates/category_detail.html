@@ -1,28 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <header>
-        <h1>Books in {{ category.name }}</h1>
-    </header>
-    <main>
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+{% if 'search' in request.path %}
+<h4 class="title-page text-info">Search results</h4>
+<header class="border-bottom mb-4 pb-3 ">
+    <div class="form-inline">
+        <span class="mr-md-auto">{{ book_count }} Items found</span>
+        
+    </div>
+</header>
+{% else %}
+<section class="section-pagetop bg">
+    <div class="container">
+        <h4 class="title-page text-info">{{ category.name }}</h4>
+        
+    </div> <!-- container //  -->
+    </section>
+    </div> <!-- container .//  -->
+{% endif %}
+   
+    <div class="row">
         {% if books %}
-            <ul class="book-list">
-                {% for book in books %}
-                    <li class="book-item">
-                        <h2>{{ book.title }}</h2>
-                        <p><strong>Author:</strong> {{ book.author }}</p>
-                        <p>{{ book.description }}</p>
-                    </li>
-                {% endfor %}
-            </ul>
+        {% for book in books %}
+        <div class="col-md-3">
+            <div class="card card-product-grid">
+                <a href="{% url 'book_detail' book.id %}" class="img-wrap">
+                    <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                </a>
+                <figcaption class="info-wrap">
+                    <a href="{% url 'book_detail' book.id %}" class="title">{{ book.title }}</a>
+                    <div class="price mt-1">₹{{ book.price }}</div> <!-- price-wrap.//-->
+                </figcaption>
+            </div>
+        </div>  <!-- col.// -->
+        {% endfor %}
         {% else %}
-            <p>No books available in this category.</p>
+        <div class="col-12">
+            <p class="text-center text-bold ">No books available.</p>
+        </div>
         {% endif %}
-    </main>
-</body>
-</html>
+    </div>
+
+    
+    {% endblock %}

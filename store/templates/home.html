@@ -1,36 +1,73 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <title>Document</title>
-   
-</head>
-<body>
-    {% include 'components/navbar.html' %}
-    <ul class="category-list">
-      {% for category in categories %}
-          <li class="category-item">
-              <a href="{% url 'category_detail' category.id %}">{{ category.name }}</a>
-          </li>
-      {% empty %}
-          <li>No categories available.</li>
-      {% endfor %}
-  </ul>
-    <div class="container mt-5">
-        {% for book in books %}
-        <a href="{% url 'book_detail' book.id %}" class="stretched-link" style = "text-decoration: none;">
-    <div class="card"  style="width: 18rem;">
-        <img src="{{ book.image.url }}" class="card-img-top" alt="...">
-      <div class="card-body">
-          <h5 class="card-title">{{ book.title }}</h5>
-          <p class="card-title">{{ book.author  }}</p>
-          <p class="card-text">{{ book.price }}</p> 
-          <!-- <a href="#" class="btn btn-primary">Go somewhere</a> -->
-        </div>
-      </div></a>
-      {% endfor %}
+
+
+
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+
+<!-- ========================= SECTION MAIN ========================= -->
+<section class="section-intro padding-y-sm">
+<div class="container">
+
+<div class="intro-banner-wrap">
+	<img src="{% static 'images/banners/bookstore-landscape.jpg' %}" class="img-fluid rounded">
+</div>
+
+</div> <!-- container //  -->
+</section>
+<!-- ========================= SECTION MAIN END// ========================= -->
+
+<!-- ========================= SECTION  ========================= -->
+<section class="section-name padding-y-sm">
+<div class="container mt-5">
+    <div class="container ">
+    <h3 class="section-title ">Popular categories</h3>
+    <ul class="category-list d-flex flex-wrap list-unstyled "   >
+        {% for category in categories %}
+            <li class="category-item mx-5  text-decoration-none font-weight-bold " >
+                <a href="{% url 'category_detail' category.id %}" class = "text-info fs-3">{{ category.name }}</a>
+            </li>
+        {% empty %}
+            <li>No categories available.</li>
+        {% endfor %}
+    </ul>
     </div>
+<div class="container mt-5">
+<header class="section-heading" >
+	<!-- <a href="./store.html" class="btn btn-outline-primary float-right">See all</a> -->
+	<h3 class="section-title">Popular products</h3>
+</header><!-- sect-heading -->
+</div>
+	
+<div class="row">
+    {% for book in books|slice:":10" %}
+	<div class="col-md-3">
+		<div class="card card-product-grid">
+			<a href="{% url 'book_detail' book.id %}" class="img-wrap"> <img src="{{ book.image.url }}"> </a>
+			<figcaption class="info-wrap">
+				<a href="{% url 'book_detail' book.id %}" class="title">{{ book.title }}</a>
+				<div class="price mt-1">₹{{ book.price }}</div> <!-- price-wrap.// -->
+			</figcaption>
+		</div>
+	</div> <!-- col.// -->
+	{% endfor %}
+	
+</div> <!-- row.// -->
+
+</div><!-- container // -->
+</section>
+<!-- ========================= SECTION  END// ========================= -->
+
+
+
+
+<!-- ========================= FOOTER ========================= -->
+
+<!-- ========================= FOOTER END // ========================= -->
+
 </body>
 </html>
+
+{% endblock %}
