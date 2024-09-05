@@ -4,7 +4,7 @@ from django.contrib.auth.models  import User
 # Create your models here.
 class Category(models.Model):
     name = models.CharField(max_length= 100)
-    slug = models.SlugField(max_length=100 , unique= True , null = True)
+    # slug = models.SlugField(max_length=100 , unique= True , null = True)
     # cat_image = models.ImageField(upload_to= "media/categories" , blank = True)
         
 
@@ -29,10 +29,23 @@ class Book(models.Model):
     
 
 
-class Ratings(models.Model):
-    book = models.ForeignKey(Book , on_delete= models.CASCADE)
-    user = models.ForeignKey(User , on_delete= models.CASCADE )
-    rating = models.PositiveIntegerField()
+# class Ratings(models.Model):
+#     book = models.ForeignKey(Book , on_delete= models.CASCADE)
+#     user = models.ForeignKey(User , on_delete= models.CASCADE )
+#     rating = models.PositiveIntegerField()
     
 
-# class cart(models.Models):
+class Cart(models.Model):
+    date_added = models.DateTimeField(auto_now_add= True)
+
+    def __str__(self):
+        return self.date_added
+
+class CartItem(models.Model):
+    book = models.ForeignKey(Book , on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart , on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    is_active = models.BooleanField(default= True)
+
+    def __str__(self):
+        return self.book

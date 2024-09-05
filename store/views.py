@@ -31,7 +31,7 @@ class HomeView(TemplateView):
     
     def get(self , request):
         categories = Category.objects.all()
-        books = Book.objects.all()
+        books = Book.objects.order_by("created")
         context = {"categories" : categories , "books" : books}
         return render(request , self.template_name , context)
 
@@ -52,7 +52,7 @@ class HomeView(TemplateView):
 #     category = get_object_or_404(Category, pk=pk)
 #     books = Book.objects.filter(category=category)
 #     return render(request, 'category_detail.html', {'category': category, 'books': books})
-class CategoryDetailView(DetailView):
+class CategoryDetailView(DetailView) :
     model = Category
     template_name = 'category_detail.html'
     context_object_name = 'category'
@@ -62,7 +62,7 @@ class CategoryDetailView(DetailView):
     #     context['books'] = Book.objects.filter(category=self.object)
     #     return context
 
-    def get(self , request , pk):
+    def get(self , request , pk ):
         category = get_object_or_404(Category , pk = pk)
         books = Book.objects.filter(category = category)
         book_count = books.count()
@@ -96,8 +96,14 @@ def search(request):
         if keyword:
             books = Book.objects.order_by('-created').filter(Q(description__icontains = keyword) | Q(title__icontains = keyword) | Q(category__name__icontains = keyword) | Q(author__icontains = keyword))
             book_count = books.count()
-            context = {
+           
+        else:
+            books = Book.objects.none()  # Empty queryset
+            book_count = 0
+
+    context = {
                 "books" : books,
-                "book_count" : book_count
+                "book_count" : book_count,
+                "keyword" : keyword,
             }
     return render(request , 'category_detail.html' , context)
