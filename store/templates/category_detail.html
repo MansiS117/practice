@@ -3,7 +3,7 @@
 
 {% block content %}
 {% if 'search' in request.path %}
-<h4 class="title-page text-info">Search results</h4>
+<h5 class="title-page text-info">Search results for {{ keyword }}</h5>
 <header class="border-bottom mb-4 pb-3 ">
     <div class="form-inline">
         <span class="mr-md-auto">{{ book_count }} Items found</span>
@@ -24,7 +24,7 @@
         {% if books %}
         {% for book in books %}
         <div class="col-md-3">
-            <div class="card card-product-grid">
+            <div class="card card-product-grid shadow-lg mt-3">
                 <a href="{% url 'book_detail' book.id %}" class="img-wrap">
                     <img src="{{ book.image.url }}" alt="{{ book.title }}">
                 </a>
@@ -32,6 +32,9 @@
                     <a href="{% url 'book_detail' book.id %}" class="title">{{ book.title }}</a>
                     <div class="price mt-1">₹{{ book.price }}</div> <!-- price-wrap.//-->
                 </figcaption>
+                <div class="card-footer d-flex justify-content-end">
+                    <a href="{% url 'cart' %}"><span  class = "text-warning font-weight-bold">Add to Cart</span></a> 
+                 </div>
             </div>
         </div>  <!-- col.// -->
         {% endfor %}
