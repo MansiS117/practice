@@ -1,33 +1,23 @@
-from django.shortcuts import render , get_object_or_404
+from django.shortcuts import render , get_object_or_404 , redirect
+from django.views import View
 from django.views.generic.detail import DetailView 
 from django.views.generic import TemplateView , ListView 
-from .models import Book , Category 
+from .models import Book , Category , User , Cart , CartItem
 from django.db.models import Q
+from . forms import RegistrationForm 
+from django.contrib.auth import login , authenticate , logout
+from django.contrib import messages
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.decorators import login_required
+
 # Create your views here.
-# def home(request):
-#     books = Book.objects.all()  
-#     categories = Category.objects.all()
-#     context = {
-#         "books" : books ,
-#         "categories" : categories
-        
-#      }
-#     return render(request , "home.html", context)
+
 
 # views.py
 
 class HomeView(TemplateView):
     template_name = 'home.html'
 
-    # def get_context_data(self, **kwargs):
-    #     # Call the base implementation first to get a context
-    #     context = super().get_context_data(**kwargs)
-        
-    #     # Add books and categories to the context
-    #     context['books'] = Book.objects.all()
-    #     context['categories'] = Category.objects.all()
-        
-    #     return context
     
     def get(self , request):
         categories = Category.objects.all()
@@ -35,35 +25,14 @@ class HomeView(TemplateView):
         context = {"categories" : categories , "books" : books}
         return render(request , self.template_name , context)
 
-# class HomeView(ListView):
-#     model = Book  # Specify the model for the primary list view
-#     template_name = 'home.html'
-    
-#     def get_context_data(self, **kwargs):
-#         # Call the base implementation first to get the context
-#         context = super().get_context_data(**kwargs)
-        
-#         # Add categories to the context
-#         context['categories'] = Category.objects.all()
-        
-#         return context
-    
-# def category_detail(request, pk):
-#     category = get_object_or_404(Category, pk=pk)
-#     books = Book.objects.filter(category=category)
-#     return render(request, 'category_detail.html', {'category': category, 'books': books})
+
 class CategoryDetailView(DetailView) :
     model = Category
     template_name = 'category_detail.html'
     context_object_name = 'category'
 
-    # def get_context_data(self, **kwargs):
-    #     context = super().get_context_data(**kwargs)
-    #     context['books'] = Book.objects.filter(category=self.object)
-    #     return context
-
     def get(self , request , pk ):
-        category = get_object_or_404(Category , pk = pk)
+        category = get_object_or_404(Category,pk = pk)
         books = Book.objects.filter(category = category)
         book_count = books.count()
         context = {"category" : category , "books" : books ,  "book_count" : book_count }
@@ -82,14 +51,16 @@ class BookDetailView(DetailView):
     template_name = 'book_detail.html'
     context_object_name = 'book'
 
-
-
-
 ## cart
 
 def cart(request):
-    return render(request , "cart.html")
+    cart_items = CartItem.objects.filter(buyer=request.user)
+    total_price = sum(item.book.price * item.quantity for item in cart_items)
+    return render(request, 'cart.html', {'cart_items': cart_items, 'total_price': total_price})
+    # return render(request , "cart.html")
 
+
+## search
 def search(request):
     if "keyword" in request.GET:
         keyword = request.GET['keyword']
@@ -107,3 +78,71 @@ def search(request):
                 "keyword" : keyword,
             }
     return render(request , 'category_detail.html' , context)
+
+
+class RegistrationView(TemplateView):
+    template_name = "register.html"
+
+    def get(self, request):
+        # if request.user.is_authenticated:
+        #     return redirect("/")
+        form = RegistrationForm()
+        return render(request, self.template_name, {"form": form})
+
+    def post(self, request):
+        # if request.user.is_authenticated:
+        #     return redirect("/")
+
+        form = RegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # send_verification_email(user, request)
+            messages.success(request, "Account Created Successfully!")
+            return redirect("/")
+
+        return render(request, self.template_name, {"form": form})
+    
+
+class LoginView(TemplateView):
+    template_name = "signin.html"
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            return redirect("/")
+        return render(request, self.template_name)
+
+    def post(self, request):
+        email = request.POST.get("email")
+        user_password = request.POST.get("password")
+        user = authenticate(request, username=email, password=user_password)  # Ensure email-based authentication
+
+        if user is not None:
+            login(request, user)
+            messages.success(request, "Logged in successfully.")
+            return redirect("/")  # Redirect to the homepage or another page after login
+        else:
+            messages.error(request, "Invalid login credentials.")
+            return redirect("login")  # Redirect to the login page on error
+
+
+@login_required(login_url = "login")
+def user_logout(request):
+    logout(request)
+    messages.success(request , "You are logged out")
+    return redirect("login")
+
+
+
+    
+ 
+# def add_to_cart(request, product_id):
+#     book = Book.objects.get(id=product_id)
+#     cart_item, created = CartItem.objects.get_or_create(book=book, user=request.user)
+#     cart_item.quantity += 1
+#     cart_item.save()
+#     return redirect('cart:view_cart')
+ 
+# def remove_from_cart(request, item_id):
+#     cart_item = CartItem.objects.get(id=item_id)
+#     cart_item.delete()
+#     return redirect('cart:view_cart')

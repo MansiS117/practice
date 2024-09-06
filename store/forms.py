@@ -1,0 +1,21 @@
+from django import forms
+from . models import User
+
+class RegistrationForm(forms.ModelForm):
+    password = forms.CharField(widget= forms.PasswordInput(attrs= {"placeholder" : "Enter Password"}))
+    confirm_password = forms.CharField(widget= forms.PasswordInput(attrs= {"placeholder" : "Confirm Password"}))
+    class Meta:
+        model = User
+        fields = ["first_name" , "last_name" ,"user_type", "email" , "password"]
+
+    def __init__(self , *args , **kwargs):
+        super(RegistrationForm, self).__init__(*args , **kwargs)
+        self.fields['first_name'].widget.attrs['placeholder'] = "Enter First Name" #applying the text in the placeholder
+        self.fields['last_name'].widget.attrs['placeholder'] = "Enter Last Name"
+        self.fields['email'].widget.attrs['placeholder'] = "Enter Email"
+        # self.fields['first_name'].widget.attrs['placeholder'] = "Enter First Name"
+
+        for field in self.fields:
+            self.fields[field].widget.attrs['class'] = 'form-control'  #applying the bootstrap class form-control on all the fields
+
+
