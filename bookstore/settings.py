@@ -58,12 +58,13 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": ['templates'],
         "APP_DIRS": True,
-        "OPTIONS": {
+        "OPTIONS": {    
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                'store.context_processors.cart_item_count', 
             ],
         },
     },
@@ -71,6 +72,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "bookstore.wsgi.application"
 
+AUTH_USER_MODEL = "store.User"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

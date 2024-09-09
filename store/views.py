@@ -17,8 +17,7 @@ from django.contrib.auth.decorators import login_required
 
 class HomeView(TemplateView):
     template_name = 'home.html'
-
-    
+  
     def get(self , request):
         categories = Category.objects.all()
         books = Book.objects.order_by("created")
@@ -38,26 +37,25 @@ class CategoryDetailView(DetailView) :
         context = {"category" : category , "books" : books ,  "book_count" : book_count }
         return render(request , self.template_name , context)
  
+# class BookDetailView(DetailView):
+#     model = Book
+#     template_name = 'book_detail.html'
+#     context_object_name = 'book'
 
-# def book_detail(request , pk):
-#     book = get_object_or_404(Book , pk=pk)
-#     context = {
-#         "book"  : book 
-#     }
-#     return render(request , "book_detail.html" , context) 
-
-class BookDetailView(DetailView):
-    model = Book
+class BookDetailView(View):
     template_name = 'book_detail.html'
-    context_object_name = 'book'
-
-## cart
-
-def cart(request):
-    cart_items = CartItem.objects.filter(buyer=request.user)
-    total_price = sum(item.book.price * item.quantity for item in cart_items)
-    return render(request, 'cart.html', {'cart_items': cart_items, 'total_price': total_price})
-    # return render(request , "cart.html")
+    
+    def get(self, request, book_id):
+        # Retrieve the book object using the primary key (pk) from the URL
+        book = get_object_or_404(Book, pk = book_id)
+        
+        # Define the context to be passed to the template
+        context = {
+            'book': book
+        }
+        
+        # Render the template with the context
+        return render(request, self.template_name, context)
 
 
 ## search
@@ -132,17 +130,102 @@ def user_logout(request):
     return redirect("login")
 
 
+class CartView(TemplateView):
+    template_name = "cart.html"
 
-    
- 
-# def add_to_cart(request, product_id):
-#     book = Book.objects.get(id=product_id)
-#     cart_item, created = CartItem.objects.get_or_create(book=book, user=request.user)
-#     cart_item.quantity += 1
-#     cart_item.save()
-#     return redirect('cart:view_cart')
- 
-# def remove_from_cart(request, item_id):
-#     cart_item = CartItem.objects.get(id=item_id)
-#     cart_item.delete()
-#     return redirect('cart:view_cart')
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return redirect('login')  # Redirect to the login page if the user is not authenticated
+
+        cart = Cart.objects.filter(buyer=request.user).first()
+        if cart:
+            cart_items = CartItem.objects.filter(cart=cart)
+
+            total_price = 0.0
+            for item in cart_items:
+                item.total_price = float(item.book.price) * float(item.quantity)
+                total_price += item.total_price
+
+
+            context = {
+                "cart": cart,
+                "cart_items": cart_items,
+                "total_price": total_price,
+                
+            }
+        else:
+            context = {
+                "cart": None,
+                "cart_items": [],
+                "total_price": 0.0,
+                
+            }
+
+        return render(request, self.template_name, context)
+
+
+# Add the product into the cart
+
+
+class AddToCartView(View):
+    def get(self, request, book_id):
+        book = get_object_or_404(Book, id=book_id)
+
+        # Ensure the user is authenticated
+        if not request.user.is_authenticated:
+            return redirect('login')  # Redirect to login if the user is not authenticated
+
+        # Get or create a cart for the current user
+        if book:
+            cart = Cart.objects.filter(buyer=request.user).first()
+            if not cart:
+                cart = Cart(buyer=request.user)
+                cart.save()
+
+            cart_item = CartItem.objects.filter(
+                cart=cart, book=book
+            ).first()
+            if not cart_item:
+                cart_item = CartItem(cart=cart, book=book, quantity=1)
+                cart_item.save()
+            else:
+                cart_item.quantity += 1
+                cart_item.save()
+
+        return redirect('cart')
+
+class QuantityView(TemplateView):
+    template_name = "cart.html"
+    def post(self, request):
+        cart_item_id = request.POST.get("cart_item_id")
+        quantity_action = request.POST.get("quantity_action")
+
+        cart_item = CartItem.objects.filter(id=cart_item_id).first()
+
+        if cart_item:
+            if quantity_action == "increase":
+                cart_item.quantity += 1
+            elif quantity_action == "decrease":
+                if cart_item.quantity > 1:
+                    cart_item.quantity -= 1
+
+            cart_item.save()
+
+        return redirect("cart")
+
+
+# Remove the items from the cart
+
+
+class RemoveView(TemplateView):
+    template_name = "cart.html"
+    def post(self, request, item_id):
+        item = CartItem.objects.filter(id=item_id).first()
+
+        if item:
+            item.delete()
+            messages.success(request, "item removed successfully")
+        else:
+            messages.error(request, "item does not exist")
+
+        return redirect("cart")
