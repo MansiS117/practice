@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+<!-- ========================= SECTION CONTENT ========================= -->
+<section class="section-content padding-y bg">
+
+<div class="container">
+    <div class="row">
+    <aside class="col-md-3">
+        <!--   SIDEBAR   -->
+        <ul class="list-group">
+            {% if user_type == 'buyer' %}
+            <a class="list-group-item active bg-warning" href="#"> My order history </a>
+            <a class="list-group-item text-warning" href="{% url 'profile' %}"> Edit Profile </a>
+            <a class="list-group-item text-warning" href="#"> Change Password </a>
+            
+            {% elif user_type == 'author' %}
+            <a class="list-group-item active bg-warning" href="#"> My Books</a>
+            <a class="list-group-item text-warning" href="{% url 'new_book' %}"> Add Book </a>
+            <a class="list-group-item text-warning" href="#"> Received Orders </a>
+            
+            {% endif %}
+        </ul>
+        <br>
+        <!--   SIDEBAR .//END   -->
+    </aside>
+    <main class="col-md-9">
+        <article class="card">
+            {% if user_type == 'buyer' %}
+            {% for order in orders %}
+            <header class="card-header">
+                <strong class="d-inline-block mr-3">Order ID: {{ order.id }}</strong>
+                <span>Order Date: {{ order.ordered_at }}</span>
+            </header>
+            
+            <div class="table-responsive">
+            <table class="table table-hover">
+                {% for item in order.order_items.all %}
+                <tr>
+                    <td width="65">
+                        <img src="{{ item.book.image.url  }}" class="img-xs border">
+                    </td>
+                    <td>
+                        <p class="title mb-0">{{ item.book.title }}</p>
+                        <var class="price text-muted">₹{{ item.unit_price }}</var>
+                    </td>
+                    <td> Author <br> {{ item.book.author }} </td>
+                    <!-- <td width="250"> <a href="#" class="btn btn-outline-warning">Track order</a> <a href="#" class="btn btn-light"> Details </a> </td> -->
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">No items found.</td>
+                </tr>
+                {% endfor %}
+            </table>
+            </div> <!-- table-responsive .end// -->
+            {% endfor %}
+            {% elif user_type == 'author' %}
+            <!-- Author-specific content -->
+            <header class="card-header">
+                <strong class="d-inline-block mr-3">Books</strong>
+                <span>Order Date: 16 December 2018</span>
+            </header>
+            <div class="card-body"></div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6 class="text-muted">The Alchemist</h6>
+                        <p>Paulo Coelho <br>
+                        Phone +1234567890 Email: myname@pixsellz.com <br>
+                        Location: Home number, Building name, Street 123, Tashkent, UZB <br>
+                        P.O. Box: 100123
+                        </p>
+                    </div>
+            {% endif %}
+        </article> <!-- order-group.// -->
+    </main>
+    </div> <!-- row.// -->
+</div>
+
+</section>
+<!-- ========================= SECTION CONTENT END// ========================= -->
+
+{% endblock %}

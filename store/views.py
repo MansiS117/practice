@@ -2,13 +2,14 @@ from django.shortcuts import render , get_object_or_404 , redirect
 from django.views import View
 from django.views.generic.detail import DetailView 
 from django.views.generic import TemplateView , ListView 
-from .models import Book , Category , User , Cart , CartItem
+from .models import Book , Category , User , Cart , CartItem, Order, OrderItem, Profile
 from django.db.models import Q
-from . forms import RegistrationForm 
+from . forms import RegistrationForm, ProfileForm, BookForm
 from django.contrib.auth import login , authenticate , logout
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 
 # Create your views here.
 
@@ -59,23 +60,30 @@ class BookDetailView(View):
 
 
 ## search
-def search(request):
-    if "keyword" in request.GET:
-        keyword = request.GET['keyword']
+class SearchView(View):
+    template_name = 'category_detail.html'
+    
+    def get(self, request):
+        keyword = request.GET.get('keyword', '')
+
         if keyword:
-            books = Book.objects.order_by('-created').filter(Q(description__icontains = keyword) | Q(title__icontains = keyword) | Q(category__name__icontains = keyword) | Q(author__icontains = keyword))
+            books = Book.objects.order_by('-created').filter(
+                Q(description__icontains=keyword) | 
+                Q(title__icontains=keyword) | 
+                Q(category__name__icontains=keyword) | 
+                Q(author__icontains=keyword)
+            )
             book_count = books.count()
-           
         else:
             books = Book.objects.none()  # Empty queryset
             book_count = 0
 
-    context = {
-                "books" : books,
-                "book_count" : book_count,
-                "keyword" : keyword,
-            }
-    return render(request , 'category_detail.html' , context)
+        context = {
+            'books': books,
+            'book_count': book_count,
+            'keyword': keyword,
+        }
+        return render(request, self.template_name, context)
 
 
 class RegistrationView(TemplateView):
@@ -93,10 +101,21 @@ class RegistrationView(TemplateView):
 
         form = RegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            # send_verification_email(user, request)
-            messages.success(request, "Account Created Successfully!")
-            return redirect("/")
+            user = form.save(commit=False)
+            # Set the user's password securely
+            email = form.cleaned_data['email']         
+            password = form.cleaned_data['password']
+            confirm_password = form.cleaned_data['confirm_password']
+
+            if password == confirm_password:
+                user.set_password(password)
+                user.save()
+           
+                messages.success(request, "Account Created Successfully!")
+                return redirect("/")
+            else:
+                # Handle password mismatch error here
+                messages.error(request, "Password does not match.")
 
         return render(request, self.template_name, {"form": form})
     
@@ -165,8 +184,6 @@ class CartView(TemplateView):
 
 
 # Add the product into the cart
-
-
 class AddToCartView(View):
     def get(self, request, book_id):
         book = get_object_or_404(Book, id=book_id)
@@ -215,8 +232,6 @@ class QuantityView(TemplateView):
 
 
 # Remove the items from the cart
-
-
 class RemoveView(TemplateView):
     template_name = "cart.html"
     def post(self, request, item_id):
@@ -229,3 +244,162 @@ class RemoveView(TemplateView):
             messages.error(request, "item does not exist")
 
         return redirect("cart")
+    
+#dashboard
+@login_required(login_url = "login")
+def dashboard(request):
+    user_type = request.user.user_type
+
+    if user_type == 'author':
+        books = Book.objects.filter(author=request.user)
+        return render(request, 'dashboard.html', {'user_type': user_type, 'books': books})
+    
+    elif user_type == 'buyer':
+        # Fetch buyer-specific data (e.g., orders)
+        orders = Order.objects.filter(buyer=request.user).prefetch_related('order_items')
+        return render(request, 'dashboard.html', {'user_type': user_type, 'orders': orders})
+
+    else:
+        return render(request, 'dashboard.html', {'user_type': 'unknown'})
+        
+
+class ProfileView(TemplateView):
+    template_name = "update_profile.html"
+
+    def get(self, request):
+
+        if not request.user.is_authenticated:
+            return redirect("/")
+
+        # if request.user.user_type != "Buyer":
+        #     return redirect("seller_profile")
+
+        profile = Profile.objects.filter(user=request.user).first()
+        if not profile:
+            profile = Profile(user=request.user)
+            profile.save()
+
+        form = ProfileForm(instance=profile)
+        context = {"form": form}
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        profile = Profile.objects.filter(user=request.user).first()
+        form = ProfileForm(data=request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+
+        return redirect("profile")
+
+
+
+class OrderView(TemplateView):
+    template_name = "place-order.html"
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            messages.error(
+                request, "You need to be logged in to place an order"
+            )
+            return redirect("login")
+
+        cart = Cart.objects.filter(buyer=request.user).first()
+        if not cart:
+            messages.error(request, "No cart found for user")
+            return redirect("cart")
+
+        cart_items = CartItem.objects.filter(cart=cart)
+        
+        if not cart_items:
+            messages.error(request, "Your cart is empty")
+            return redirect("cart")
+
+        # Calculate total price, tax, and final total
+        total_price = 0.0
+        tax_rate = 0.10
+        for item in cart_items:
+            item.total_price = float(item.book.price) * float(item.quantity)
+            total_price += item.total_price
+
+        context = {
+            "cart": cart,
+            "cart_items": cart_items,
+            "total_price": total_price,
+            
+        }
+
+        # return self.render_to_response(context)
+        return render(request, self.template_name, context)
+    
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            messages.error(
+                request, "You need to be logged in to place an order"
+            )
+            return redirect("login")
+
+        cart = Cart.objects.filter(buyer=request.user).first()
+       
+        cart_items = CartItem.objects.filter(cart=cart)
+        print("Cart items:", cart_items) 
+        total_price = 0.0
+        
+        for item in cart_items:
+            item.total_price = float(item.book.price) * float(item.quantity)
+            total_price += item.total_price
+
+        # Create the order
+        order = Order.objects.create(
+            buyer=request.user,
+            total_price=total_price,
+        )
+
+        for item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                book=item.book,
+                quantity=item.quantity,
+                unit_price=item.book.price,
+            )
+
+        cart_items.delete()
+        # print("Cart items deleted.")
+
+        return redirect('checkout')
+
+
+
+    
+def checkout(request):
+    return render(request, "order_complete.html")
+
+
+# add a new book for author
+class AddBook(TemplateView):
+    def get(self,request):
+        if not request.user.is_authenticated:
+            messages.error(
+                request, "You need to add a book"
+            )
+            return redirect("login")
+        
+        form = BookForm()
+        return render(request , "add_book.html" , {"form" : form})
+    
+    def post(self , request):
+        if not request.user.is_authenticated:
+            messages.error(
+                request, "You need to add a book"
+            )
+            return redirect("login")
+        form = BookForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Book added successfully!")
+            return redirect("home")
+        
+        # If the form is not valid, re-render the form with error messages
+        return render(request, self.template_name, {"form": form})
+
+

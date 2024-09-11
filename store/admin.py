@@ -1,6 +1,8 @@
 from django.contrib import admin
-from .models import Category , Book  , Cart , CartItem , User
+from .models import Category , Book  , Cart , CartItem , User, Order, OrderItem, Profile
 from django.contrib.auth.admin import UserAdmin
+
+from django.utils.html import format_html  # Import 
 
 
 
@@ -12,9 +14,27 @@ class MyUserAdmin(UserAdmin):
     fieldsets = ()
     ordering = ("email" ,)
 
+class BookAdmin(admin.ModelAdmin):
+    list_display = ("image_tag","title" , "author" , "category" , "price" )
+    list_display_links = ("image_tag" , "title")
+
+    def image_tag(self, obj):
+        if obj.image:  # Ensure that the image field is not empty
+            return format_html('<img src="{}" width="50" height="50" />', obj.image.url)
+        return 'No image'
+    image_tag.short_description = 'Image'
+
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ("cart" , "book" , "quantity")
+    list_display_links = ("cart" , "book")
+
+
 admin.site.register(Category)
-admin.site.register(Book)
+admin.site.register(Book , BookAdmin)
 # admin.site.register(Ratings)  
 admin.site.register(Cart)
-admin.site.register(CartItem)
+admin.site.register(CartItem , CartItemAdmin)
 admin.site.register(User , MyUserAdmin)
+admin.site.register(Order)
+admin.site.register(OrderItem)
+admin.site.register(Profile)
