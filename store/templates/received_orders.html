@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section-content padding-y bg">
+    <div class="container">
+        <div class="row">
+            <aside class="col-md-3">
+                <!-- SIDEBAR -->
+                <ul class="list-group">
+                    <a class="list-group-item active bg-warning" href="{% url 'dashboard' %}">My Books</a>
+                    <a class="list-group-item text-warning" href="{% url 'new_book' %}">Add Book</a>
+                    <a class="list-group-item text-warning" href="{% url 'received_orders' %}">Received Orders</a>
+                </ul>
+                <br>
+                <!-- SIDEBAR .//END -->
+            </aside>
+
+            <main class="col-md-9">
+                <h2>Received Orders</h2>
+                {% if orders %}
+                    <ul class="list-group">
+                        {% for order in orders %}
+                            <li class="list-group-item">
+                                <h5>Order ID: {{ order.id }}</h5>
+                                <p>Total Price: ₹{{ order.total_price }}</p>
+                                <ul>
+                                    {% for book, count in book_order_counts.items %}
+                                    <li>
+                                        <strong>{{ book.title }}</strong> - {{ count }}
+                                    </li>
+                                {% empty %}
+                                    <li>No books found.</li>
+                                {% endfor %}
+                                </ul>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No received orders found.</p>
+                {% endif %}
+            </main>
+        </div> <!-- row.// -->
+    </div>
+</section>
+{% endblock %}

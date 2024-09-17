@@ -46,4 +46,4 @@ class ProfileForm(forms.ModelForm):
 class BookForm(forms.ModelForm):
     class Meta:
         model = Book
-        fields = ["title", "author", "category", "price", "image", "description"]
+        fields = ["title", "author", "category", "image","price", "description"]

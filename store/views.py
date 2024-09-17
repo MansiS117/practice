@@ -22,7 +22,8 @@ class HomeView(TemplateView):
     def get(self , request):
         categories = Category.objects.all()
         books = Book.objects.order_by("created")
-        context = {"categories" : categories , "books" : books}
+        user_type = request.user.user_type if request.user.is_authenticated else None
+        context = {"categories" : categories , "books" : books, "user_type": user_type}
         return render(request , self.template_name , context)
 
 
@@ -125,9 +126,11 @@ class LoginView(TemplateView):
 
     def get(self, request):
         if request.user.is_authenticated:
-            return redirect("/")
+           if request.user.user_type == 'seller':
+                return redirect("dashboard")  # Redirect sellers to the dashboard
+           else:
+                return redirect("/")  # Redirect buyers to the home page
         return render(request, self.template_name)
-
     def post(self, request):
         email = request.POST.get("email")
         user_password = request.POST.get("password")
@@ -135,8 +138,13 @@ class LoginView(TemplateView):
 
         if user is not None:
             login(request, user)
-            messages.success(request, "Logged in successfully.")
-            return redirect("/")  # Redirect to the homepage or another page after login
+            # Check user type and redirect accordingly
+            if user.user_type == 'seller':
+                messages.success(request, "Logged in successfully.")
+                return redirect("dashboard")  # Redirect sellers to the dashboard
+            else:
+                messages.success(request, "Logged in successfully.")
+                return redirect("/")  # Redirect buyers to the home page
         else:
             messages.error(request, "Invalid login credentials.")
             return redirect("login")  # Redirect to the login page on error
@@ -183,7 +191,7 @@ class CartView(TemplateView):
         return render(request, self.template_name, context)
 
 
-# Add the product into the cart
+# Add the book into the cart
 class AddToCartView(View):
     def get(self, request, book_id):
         book = get_object_or_404(Book, id=book_id)
@@ -250,8 +258,8 @@ class RemoveView(TemplateView):
 def dashboard(request):
     user_type = request.user.user_type
 
-    if user_type == 'author':
-        books = Book.objects.filter(author=request.user)
+    if user_type == 'seller':   
+        books = Book.objects.filter(seller=request.user)
         return render(request, 'dashboard.html', {'user_type': user_type, 'books': books})
     
     elif user_type == 'buyer':
@@ -375,8 +383,9 @@ def checkout(request):
     return render(request, "order_complete.html")
 
 
-# add a new book for author
+# add a new book for seller
 class AddBook(TemplateView):
+    template_name = "add_book.html"
     def get(self,request):
         if not request.user.is_authenticated:
             messages.error(
@@ -384,22 +393,117 @@ class AddBook(TemplateView):
             )
             return redirect("login")
         
+        
         form = BookForm()
         return render(request , "add_book.html" , {"form" : form})
     
     def post(self , request):
         if not request.user.is_authenticated:
             messages.error(
-                request, "You need to add a book"
+                request, "You need to login"
             )
             return redirect("login")
-        form = BookForm(request.POST)
+        user_type = request.user.user_type
+        if request.user.user_type != "seller":
+            messages.error(
+                request, "You are not authorized to view this page."
+            )
+            return redirect("/")
+        form = BookForm(request.POST, request.FILES)
+        if form.is_valid():
+                book = form.save(commit=False)
+                book.seller = request.user
+                book.save()
+                messages.success(request, "book created successfully!")
+                return redirect("dashboard")
+        else:
+                messages.error(
+                    request, "There was an error with your submission."
+                )
+    
+        # If the form is not valid, re-render the form with error messages
+        return self.render_to_response({"form": form})
+
+
+# update book for seller
+class UpdateBook(View):
+    template_name = "add_book.html"
+
+    def get(self, request, book_id):
+        book = Book.objects.filter(id=book_id).first()
+        if not book:
+            messages.error(request, "book not found.")
+            return redirect("dashboard")
+
+        form = BookForm(instance=book)
+        return render(
+            request, self.template_name, {"form": form, "book": book}
+        )
+
+    def post(self, request, book_id):
+        book = Book.objects.filter(id=book_id).first()
+        if not book:
+            messages.error(request, "book not found.")
+            return redirect("dashboard")
+
+        form = BookForm(
+            request.POST, request.FILES, instance=book
+        )
         if form.is_valid():
             form.save()
-            messages.success(request, "Book added successfully!")
-            return redirect("home")
+            messages.success(request, "book updated successfully!")
+            return redirect("dashboard")
+        else:
+            messages.error(request, "There was an error with your submission.")
+
+        return render(
+            request, self.template_name, {"form": form, "book": book}
+        )
+
+# remove book for seller
+class RemoveBook(View):
+    def get(self, request, book_id):
+        # Get the book object, or return a 404 if it does not exist
+        book = get_object_or_404(Book, id=book_id)
+
+        # Optionally check if the user has permission to delete the book
+        if request.user != book.seller:
+            messages.error(request, "You are not authorized to delete this book.")
+            return redirect("dashboard")
+
+        # Delete the book
+        book.delete()
+        messages.success(request, "Book removed successfully!")
+        return redirect("dashboard")
+    
+# recieved order for seller
+class ReceivedOrdersView(TemplateView):
+    template_name = "received_orders.html"
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            messages.error(request, "You need to be logged in to view orders.")
+            return redirect("login")
         
-        # If the form is not valid, re-render the form with error messages
-        return render(request, self.template_name, {"form": form})
+        if request.user.user_type != "seller":
+            messages.error(request, "You are not authorized to view this page.")
+            return redirect("dashboard")
+        
+        # Retrieve orders for which the current seller's books are included
+        seller_books = Book.objects.filter(seller=request.user)
+        orders = Order.objects.filter(order_items__book__in=seller_books).distinct()
 
+        # Count orders for each book
+        book_order_counts = {}
+        for order in orders:
+            for item in order.order_items.all():
+                if item.book not in book_order_counts:
+                    book_order_counts[item.book] = 0
+                book_order_counts[item.book] += item.quantity 
 
+        context = {
+            "orders": orders,   
+            "book_order_counts": book_order_counts,
+        }
+
+        return render(request, self.template_name, context)
