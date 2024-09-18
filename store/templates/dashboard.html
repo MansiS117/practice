@@ -64,10 +64,13 @@
                 {% elif user_type == 'seller' %}
                     <!-- Seller-specific content -->
                     <header class="card-header">
-                        <strong class="d-inline-block mr-3">Books</strong>
+                        <h2><strong class="d-inline-block mr-3">Books</strong></h2>
                         <!-- <span>Order Date: 16 December 2018</span> -->
                     </header>
                     <div class="card-body">
+                        {% for message in messages %}
+                         <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                        {% endfor %}
                         <ul class="list-group">
                             {% for book in books %}
                                 <li class="list-group-item">
