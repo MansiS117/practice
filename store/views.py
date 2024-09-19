@@ -10,8 +10,16 @@ from django.views.generic import ListView, TemplateView
 from django.views.generic.detail import DetailView
 
 from .forms import BookForm, ProfileForm, RegistrationForm
-from .models import (Book, Cart, CartItem, Category, Order, OrderItem, Profile,
-                     User)
+from .models import (
+    Book,
+    Cart,
+    CartItem,
+    Category,
+    Order,
+    OrderItem,
+    Profile,
+    User,
+)
 
 # Create your views here.
 
@@ -41,20 +49,12 @@ class CategoryDetailView(DetailView):
     template_name = "category_detail.html"
     context_object_name = "category"
 
-    def get(self, request, pk):
-        category = get_object_or_404(Category, pk=pk)
-        books = Book.objects.filter(category=category)
-        book_count = books.count()
-        user_type = (
-            request.user.user_type if request.user.is_authenticated else None
-        )
-        context = {
-            "category": category,
-            "books": books,
-            "book_count": book_count,
-            "user_type": user_type,
-        }
-        return render(request, self.template_name, context)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        category = self.get_object()  # Retrieve the category instance
+        context["books"] = Book.objects.filter(category=category)
+        context["book_count"] = context["books"].count()
+        return context
 
 
 class BookDetailView(View):
