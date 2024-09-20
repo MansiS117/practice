@@ -20,23 +20,10 @@ class Category(TimestampModel):
         return self.name
     
     
-class Book(TimestampModel):
-    title = models.CharField(max_length= 100 , blank = False)
-    author = models.CharField(max_length=50)
-    category = models.ForeignKey(Category , on_delete= models.SET_NULL , null = True) 
-    price =  models.DecimalField(max_digits=6, decimal_places=2)
-    image = models.ImageField(upload_to= "media" , null = True)
-    description = models.TextField(blank=True, null=True)
-    is_available = models.BooleanField(default= True)
-
-    def __str__(self):
-        return self.title
-    
-
 
 USER_TYPE_CHOICES = [
         ('buyer', 'Buyer'),
-        ('author', 'Author'),
+        ('seller', 'Seller'),
     ]
 
 class User(AbstractUser , TimestampModel):
@@ -58,7 +45,18 @@ class User(AbstractUser , TimestampModel):
        def __str__(self):
             return self.email
  
+class Book(TimestampModel):
+    title = models.CharField(max_length= 100 , blank = False)
+    author = models.CharField(max_length=50)
+    seller = models.ForeignKey(User, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category , on_delete= models.SET_NULL , null = True) 
+    price =  models.DecimalField(max_digits=6, decimal_places=2)
+    image = models.ImageField(upload_to= "media" , null = True)
+    description = models.TextField(blank=True, null=True)
+    is_available = models.BooleanField(default= True)
 
+    def __str__(self):
+        return self.title
 
 class Cart(TimestampModel):
     

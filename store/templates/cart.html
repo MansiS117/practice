@@ -99,14 +99,14 @@
                         <p class="text-center mb-3">
                             <img src="{% static 'images/misc/payments.png' %}" height="26">
                         </p>
-                        <a href="#" class="btn btn-primary btn-block"> Checkout </a>
-                        <a href="#" class="btn btn-light btn-block">Continue Shopping</a>
+                        <a href="{% url 'order' %}" class="btn btn-primary btn-block"> Checkout </a>
+                        <a href="{% url 'home' %}" class="btn btn-light btn-block">Continue Shopping</a>
                     </div> <!-- card-body.// -->
                 </div> <!-- card.// -->
             </aside> <!-- col.// -->
         </div> <!-- row.// -->
         {% else %}
-        <p>Your cart is empty. <a href="{% url 'book_list' %}">Browse books</a> to add items to your cart.</p>
+        <p>Your cart is empty. <a href="{% url 'home' %}">Browse books</a> to add items to your cart.</p>
         {% endif %}
         <!-- ============================ COMPONENT 1 END .// ================================= -->
     </div> <!-- container .// -->
