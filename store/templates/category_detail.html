@@ -33,7 +33,7 @@
                     <div class="price mt-1">₹{{ book.price }}</div> <!-- price-wrap.//-->
                 </figcaption>
                 <div class="card-footer d-flex justify-content-end">
-                    <a href="{% url 'cart' %}"><span  class = "text-warning font-weight-bold">Add to Cart</span></a> 
+                    <a href="{% url 'add_to_cart' book.id %}"><span  class = "text-warning font-weight-bold">Add to Cart</span></a> 
                  </div>
             </div>
         </div>  <!-- col.// -->

@@ -28,7 +28,7 @@
     </div> 
     
     <p>{{ book.description }}</p>
-     <a href="{% url 'cart' %}" class="btn  btn-primary"> <span class="text">Add to cart</span> <i class="fas fa-shopping-cart"></i>  </a>
+     <a href="{% url 'add_to_cart' book.id  %}" class="btn  btn-primary"> <span class="text">Add to cart</span> <i class="fas fa-shopping-cart"></i>  </a>
     
     <hr>
       <!-- <div class="row">
