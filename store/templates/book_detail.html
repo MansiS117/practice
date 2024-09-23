@@ -11,7 +11,7 @@
       
       <div class="row no-gutters">
         <aside class="col-md-6">
-    <article class="gallery-wrap"> 
+    <article class="gallery-wrap">  
       <div class="img-big-wrap">
          <a href="#"><img src="{{ book.image.url }}" ></a>
       </div> <!-- img-big-wrap.// -->
@@ -28,8 +28,9 @@
     </div> 
     
     <p>{{ book.description }}</p>
+    {% if user.is_authenticated and user.is_buyer %}  
      <a href="{% url 'add_to_cart' book.id  %}" class="btn  btn-primary"> <span class="text">Add to cart</span> <i class="fas fa-shopping-cart"></i>  </a>
-    
+     {% endif %}
     <hr>
       <!-- <div class="row">
         <div class="item-option-select">
