@@ -218,7 +218,7 @@ class CartView(View):
 
 # Add the book into the cart
 class AddToCartView(View):
-    template_name = "cart.html"
+    template_name = "cart.html" 
     def get(self, request, book_id):
         book = get_object_or_404(Book, id=book_id)
 
