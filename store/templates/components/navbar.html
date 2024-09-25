@@ -61,15 +61,17 @@
                       <div class="widget-header">
                         <small class="title text-muted">Welcome {{ user.first_name }}!</small>
                         <div> 
-                            <a href="#">Dashboard</a> <span class="dark-transp"> | </span>
+                            <a href="{% url 'dashboard' %}">Dashboard</a> <span class="dark-transp"> | </span>
                             <a href="{% url 'logout' %}"> Logout</a>
                         </div>
                     </div>
                       {% endif %}
+                      {% if user.is_authenticated and user.is_buyer %} 
                       <a href="{% url 'cart' %}" class="widget-header pl-3 ml-3">
                           <div class="icon icon-sm rounded-circle border"><i class="fa fa-shopping-cart"></i></div>
                           <span class="badge badge-pill badge-danger notify">{{ cart_item_count }}</span>
                       </a>
+                      {% endif %}
                   </div> <!-- widgets-wrap.// -->
               </div> <!-- col.// -->
   </div> <!-- row.// -->

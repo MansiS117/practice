@@ -20,6 +20,7 @@
 
         <main class="col-md-9">
             <h2>{% if book %}Update Book{% else %}Add Book{% endif %}</h2>
+            
             <form method="post" action="{% if book %}{% url 'update_book' book.id %}{% else %}{% url 'new_book' %}{% endif %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 {{ form.as_p }}
