@@ -33,7 +33,7 @@
                     <div class="price mt-1">₹{{ book.price }}</div> <!-- price-wrap.//-->
                 </figcaption>
                 <div class="card-footer d-flex justify-content-end">
-                    {% if user.is_authenticated and user.is_buyer %}  <!-- Checks if user is a buyer -->
+                    {% if user_type == "buyer" %}  <!-- Checks if user is a buyer -->
                         <a href="{% url 'add_to_cart' book.id %}"><span class="text-warning font-weight-bold">Add to Cart</span></a>
                     {% else %}
                         <span class="text-muted">You need to be a buyer to add items to your cart.</span>

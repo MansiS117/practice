@@ -54,7 +54,13 @@ class CategoryDetailView(DetailView):
         category = self.get_object()  # Retrieve the category instance
         context["books"] = Book.objects.filter(category=category)
         context["book_count"] = context["books"].count()
+        if self.request.user.is_authenticated:
+            context["user_type"] = self.request.user.user_type
+        else:
+            context["user_type"] = None
+        
         return context
+      
 
 
 class BookDetailView(View):
