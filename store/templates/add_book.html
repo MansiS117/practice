@@ -4,7 +4,6 @@
 
 {% block content %}
 <section class="section-content padding-y bg">
-
 <div class="container">
     <div class="row">
         <aside class="col-md-3">
@@ -23,11 +22,54 @@
             
             <form method="post" action="{% if book %}{% url 'update_book' book.id %}{% else %}{% url 'new_book' %}{% endif %}" enctype="multipart/form-data">
                 {% csrf_token %}
-                {{ form.as_p }}
-                <button type="submit">{% if book %}Update{% else %}Save changes{% endif %}</button>
+                
+                {% if book %}
+                    {{ form.as_p }}  <!-- Render the single form for updating a book -->
+                {% else %}
+                    {{ formset.management_form }}  <!-- Render management form for the formset -->
+                    
+                    <div id="formset-container">
+                        {% for form in formset %}
+                            <div class="formset_row">
+                                {{ form.as_p }}  <!-- Render each form in the formset -->
+                            </div> <br>
+                        {% endfor %}
+                    </div>
+
+                    <button type="button" id="add-book-btn" class="btn btn-primary">+ Add More Books</button>
+                {% endif %}
+                
+                <button type="submit" class = "btn btn-success">{% if book %}Update{% else %}Save Books{% endif %}</button>
             </form>
         </main>
     </div> <!-- row.// -->
 </div>
 </section>
+
+<script>
+document.getElementById('add-book-btn').addEventListener('click', function() {
+    const formsetContainer = document.getElementById('formset-container');
+    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    const currentFormCount = parseInt(totalForms.value);
+
+    // Clone the last form in the formset
+    const newForm = formsetContainer.children[currentFormCount - 1].cloneNode(true);
+    
+    // Update the form fields and management form
+    const formRegex = RegExp(`form-${currentFormCount - 1}`, 'g');
+    newForm.innerHTML = newForm.innerHTML.replace(formRegex, `form-${currentFormCount}`);
+    
+    // Reset the values of the cloned form
+    const inputs = newForm.getElementsByTagName('input');
+    for (let input of inputs) {
+        input.value = '';
+    }
+
+    // Append the new form to the container
+    formsetContainer.appendChild(newForm);
+
+    // Update the total forms count
+    totalForms.value = currentFormCount + 1;
+});
+</script>
 {% endblock %}
