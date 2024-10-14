@@ -237,6 +237,12 @@ class AddToCartView(View):
                 "login"
             )  # Redirect to login if the user is not authenticated
 
+        if book.stock <= 0:
+            messages.error(request, "No more books available in stock.")
+            return redirect(
+                "cart"
+            )  # Redirect to cart or show an error message
+
         # Get or create a cart for the current user
         if book:
             cart = Cart.objects.filter(buyer=request.user).first()
@@ -246,11 +252,19 @@ class AddToCartView(View):
 
             cart_item = CartItem.objects.filter(cart=cart, book=book).first()
             if not cart_item:
-                cart_item = CartItem(cart=cart, book=book, quantity=1)
-                cart_item.save()
+                if book.stock >= 1:  # Check if there is stock available
+                    cart_item = CartItem(cart=cart, book=book, quantity=1)
+                    cart_item.save()
+                    book.stock -= 1  # Reduce stock by 1
+                    book.save()  # Save the updated stock
             else:
-                cart_item.quantity += 1
-                cart_item.save()
+                if book.stock >= (
+                    cart_item.quantity + 1
+                ):  # Ensure enough stock for an increase
+                    cart_item.quantity += 1
+                    cart_item.save()
+                    book.stock -= 1  # Reduce stock by 1
+                    book.save()  # Save the updated stock
 
         return redirect("cart")
 
@@ -265,13 +279,25 @@ class QuantityView(View):
         cart_item = CartItem.objects.filter(id=cart_item_id).first()
 
         if cart_item:
+            book = cart_item.book  # Get the related book
+
             if quantity_action == "increase":
-                cart_item.quantity += 1
+                if book.stock > 0:  # Check if there's stock available
+                    cart_item.quantity += 1
+                    book.stock -= 1  # Decrease stock
+                    cart_item.save()
+                    book.save()  # Save the book instance to update stock
+                else:
+                    messages.error(
+                        request, "No more books available in stock."
+                    )
             elif quantity_action == "decrease":
                 if cart_item.quantity > 1:
                     cart_item.quantity -= 1
+                    book.stock += 1  # Increase stock when decreasing
 
             cart_item.save()
+            book.save()  # Save the book instance to update stock
 
         return redirect("cart")
 
@@ -284,10 +310,17 @@ class RemoveView(View):
         item = CartItem.objects.filter(id=item_id).first()
 
         if item:
-            item.delete()
-            messages.success(request, "item removed successfully")
+            # Update the stock based on the quantity being removed
+            book = item.book
+            book.stock += (
+                item.quantity
+            )  # Add back the entire quantity of this item
+            book.save()  # Save the book instance to update stock
+
+            item.delete()  # Remove the item from the cart
+            messages.success(request, "Item removed successfully")
         else:
-            messages.error(request, "item does not exist")
+            messages.error(request, "Item does not exist")
 
         return redirect("cart")
 
