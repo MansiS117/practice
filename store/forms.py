@@ -47,4 +47,5 @@ class BookForm(forms.ModelForm):
             "image",
             "price",
             "description",
+            "stock",
         )  # using tuple instead of list for memory optimization
