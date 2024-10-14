@@ -9,7 +9,7 @@ from django.views import View
 from django.views.generic import ListView, TemplateView
 from django.views.generic.detail import DetailView
 
-from .forms import BookForm, ProfileForm, RegistrationForm
+from .forms import BookForm, BookFormSet, ProfileForm, RegistrationForm
 from .models import (
     Book,
     Cart,
@@ -498,42 +498,49 @@ class SuccessView(View):
 
 
 # add a new book for seller
+
 class AddBook(View):
     template_name = "add_book.html"
 
     def get(self, request):
         if not request.user.is_authenticated:
-            messages.error(request, "You need to add a book")
+            messages.error(request, "You need to login to add a book.")
             return redirect("login")
 
-        form = BookForm()
-        return render(request, "add_book.html", {"form": form})
+        user_type = request.user.user_type
+        if user_type != "seller":
+            messages.error(request, "You are not authorized to view this page.")
+            return redirect("home")
+
+        formset = BookFormSet(queryset=Book.objects.none())  # Start with an empty formset
+        return render(request, self.template_name, {"formset": formset})
 
     def post(self, request):
         if not request.user.is_authenticated:
-            messages.error(request, "You need to login")
+            messages.error(request, "You need to login to add a book.")
             return redirect("login")
+        
         user_type = request.user.user_type
-        if request.user.user_type != "seller":
-            messages.error(
-                request, "You are not authorized to view this page."
-            )
+        if user_type != "seller":
+            messages.error(request, "You are not authorized to view this page.")
             return redirect("home")
-        form = BookForm(request.POST, request.FILES)
-        if form.is_valid():
-            book = form.save(commit=False)
-            book.seller = request.user
-            book.save()
-            messages.success(request, "book created successfully!")
+
+        formset = BookFormSet(request.POST, request.FILES)
+        
+        if formset.is_valid():
+            books = formset.save(commit=False)  # Get unsaved book instances
+            for book in books:
+                book.seller = request.user  # Assign the seller to each book
+                book.save()
+            messages.success(request, "Books created successfully!")
             return redirect("dashboard")
         else:
-            messages.error(request, "There was an error with your submission.")
+            messages.error(request, "There were errors with your submission.")
 
-        # If the form is not valid, re-render the form with error messages
-        return self.render_to_response({"form": form})
-
-
+        # If the formset is not valid, re-render the formset with error messages
+        return render(request, self.template_name, {"formset": formset})
 # update book for seller
+
 class UpdateBook(View):
     template_name = "add_book.html"
 
