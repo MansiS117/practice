@@ -20,6 +20,9 @@ from .models import (
     Profile,
     User,
 )
+from django.conf import settings  # new
+from django.urls import reverse  # new
+import stripe
 
 # Create your views here.
 
@@ -58,9 +61,8 @@ class CategoryDetailView(DetailView):
             context["user_type"] = self.request.user.user_type
         else:
             context["user_type"] = None
-        
+
         return context
-      
 
 
 class BookDetailView(View):
@@ -224,7 +226,8 @@ class CartView(View):
 
 # Add the book into the cart
 class AddToCartView(View):
-    template_name = "cart.html" 
+    template_name = "cart.html"
+
     def get(self, request, book_id):
         book = get_object_or_404(Book, id=book_id)
 
@@ -393,10 +396,27 @@ class OrderView(View):
         cart_items = CartItem.objects.filter(cart=cart)
         print("Cart items:", cart_items)
         total_price = 0.0
+        line_items = []
 
         for item in cart_items:
             item.total_price = float(item.book.price) * float(item.quantity)
             total_price += item.total_price
+
+            line_items.append(
+                {
+                    "price_data": {
+                        "currency": "inr",
+                        "product_data": {
+                            "name": item.book.title,
+                            # "images": [item.book.image.url] if item.book.image else [],  # Ensure this is a list of URLs
+                        },
+                        "unit_amount": int(
+                            item.book.price * 100
+                        ),  # Use the price in rupees directly
+                    },
+                    "quantity": item.quantity,
+                }
+            )
 
         # Create the order
         order = Order.objects.create(
@@ -413,13 +433,35 @@ class OrderView(View):
             )
 
         cart_items.delete()
-        # print("Cart items deleted.")
 
-        return redirect("checkout")
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+
+        # Create the checkout session with dynamic line items
+        checkout_session = stripe.checkout.Session.create(
+            line_items=line_items,  # Use the dynamically created line items
+            mode="payment",
+            success_url=request.build_absolute_uri(
+                reverse("success", kwargs={"order_id": order.id})
+            ),
+        )
+
+        return redirect(checkout_session.url, code=303)
 
 
-def checkout(request):
-    return render(request, "order_complete.html")
+class SuccessView(View):
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)  # Fetch the order by ID
+        order_items = OrderItem.objects.filter(order=order)
+        customer = order.buyer  # Get the order items
+
+        context = {
+            "order": order,
+            "order_items": order_items,
+            "customer": customer,
+        }
+        return render(
+            request, "order_complete.html", context
+        )  # Create this template
 
 
 # add a new book for seller

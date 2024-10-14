@@ -20,6 +20,7 @@ from .views import (
     RemoveView,
     SearchView,
     UpdateBook,
+    SuccessView,
 )
 
 urlpatterns = [
@@ -46,7 +47,6 @@ urlpatterns = [
     path("logout", views.user_logout, name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("order/", OrderView.as_view(), name="order"),
-    path("checkout/", views.checkout, name="checkout"),
     path("update_profile/", ProfileView.as_view(), name="profile"),
     path("add_book/", AddBook.as_view(), name="new_book"),
     path(
@@ -58,6 +58,7 @@ urlpatterns = [
         ReceivedOrdersView.as_view(),
         name="received_orders",
     ),
+    path("success/<int:order_id>/", SuccessView.as_view(), name="success"),
 ]
 if settings.DEBUG:
     urlpatterns += static(
