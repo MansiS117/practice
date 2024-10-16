@@ -22,6 +22,7 @@ from .models import (
 )
 from django.conf import settings  # new
 from django.urls import reverse  # new
+from datetime import timedelta
 import stripe
 
 # Create your views here.
@@ -229,19 +230,34 @@ class AddToCartView(View):
     template_name = "cart.html"
 
     def get(self, request, book_id):
-        book = get_object_or_404(Book, id=book_id)
-
         # Ensure the user is authenticated
         if not request.user.is_authenticated:
             return redirect(
                 "login"
             )  # Redirect to login if the user is not authenticated
 
+        book = get_object_or_404(Book, id=book_id)
+
         if book.stock <= 0:
             messages.error(request, "No more books available in stock.")
             return redirect(
                 "cart"
             )  # Redirect to cart or show an error message
+
+        # Check if the user has ordered this book in the last 30 days
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_order = Order.objects.filter(
+            buyer=request.user,
+            ordered_at__gte=thirty_days_ago,
+            order_items__book=book,  # Ensure this is related to the specific book
+        ).exists()
+
+        if recent_order:
+            messages.error(
+                request,
+                "You cannot add this book to your cart because you purchased it within the last 30 days.",
+            )
+            return redirect("cart")
 
         # Get or create a cart for the current user
         if book:
@@ -252,6 +268,7 @@ class AddToCartView(View):
 
             cart_item = CartItem.objects.filter(cart=cart, book=book).first()
             if not cart_item:
+
                 if book.stock >= 1:  # Check if there is stock available
                     cart_item = CartItem(cart=cart, book=book, quantity=1)
                     cart_item.save()
@@ -499,6 +516,7 @@ class SuccessView(View):
 
 # add a new book for seller
 
+
 class AddBook(View):
     template_name = "add_book.html"
 
@@ -509,24 +527,30 @@ class AddBook(View):
 
         user_type = request.user.user_type
         if user_type != "seller":
-            messages.error(request, "You are not authorized to view this page.")
+            messages.error(
+                request, "You are not authorized to view this page."
+            )
             return redirect("home")
 
-        formset = BookFormSet(queryset=Book.objects.none())  # Start with an empty formset
+        formset = BookFormSet(
+            queryset=Book.objects.none()
+        )  # Start with an empty formset
         return render(request, self.template_name, {"formset": formset})
 
     def post(self, request):
         if not request.user.is_authenticated:
             messages.error(request, "You need to login to add a book.")
             return redirect("login")
-        
+
         user_type = request.user.user_type
         if user_type != "seller":
-            messages.error(request, "You are not authorized to view this page.")
+            messages.error(
+                request, "You are not authorized to view this page."
+            )
             return redirect("home")
 
         formset = BookFormSet(request.POST, request.FILES)
-        
+
         if formset.is_valid():
             books = formset.save(commit=False)  # Get unsaved book instances
             for book in books:
@@ -539,7 +563,10 @@ class AddBook(View):
 
         # If the formset is not valid, re-render the formset with error messages
         return render(request, self.template_name, {"formset": formset})
+
+
 # update book for seller
+
 
 class UpdateBook(View):
     template_name = "add_book.html"
