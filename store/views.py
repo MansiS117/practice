@@ -31,18 +31,29 @@ import stripe
 # views.py
 
 
-class HomeView(TemplateView):
+class HomeView(View):
     template_name = "home.html"
 
-    def get(self, request):
+    def dispatch(self, request, *args, **kwargs):
+        # Retrieve banned_book_ids from kwargs if they exist
+        self.banned_book_ids = kwargs.get("banned_book_ids", [])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+
         categories = Category.objects.all()
-        books = Book.objects.order_by("created")
+        books = Book.objects.all()
+
+        # Filter out banned books if any
+        if self.banned_book_ids:
+            books = books.exclude(id__in=self.banned_book_ids)
+
         user_type = (
             request.user.user_type if request.user.is_authenticated else None
         )
         context = {
             "categories": categories,
-            "books": books,
+            "books": books.order_by("created"),  # Ensure ordering
             "user_type": user_type,
         }
         return render(request, self.template_name, context)
