@@ -15,7 +15,7 @@ class MyUserAdmin(UserAdmin):
     ordering = ("email" ,)
 
 class BookAdmin(admin.ModelAdmin):
-    list_display = ("image_tag","title" , "author" , "category" , "price" )
+    list_display = ("id", "image_tag","title" , "author" , "category" , "price" )
     list_display_links = ("image_tag" , "title")
 
     def image_tag(self, obj):

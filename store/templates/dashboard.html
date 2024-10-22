@@ -77,6 +77,7 @@
                                    
                                     <h6 class="text-muted">{{ book.title }}</h6>
                                     <p>{{ book.author }} <br>
+                                    <p>Stock available : {{ book.stock }}</p> 
                                     {{ book.description }} <br>
                                     <strong>₹{{ book.price }}</strong><br>
                                     {% if book.image %}
