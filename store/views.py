@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, TemplateView
 from django.views.generic.detail import DetailView
-
+from .utils import calculate_cart_totals
 from .forms import BookForm, BookFormSet, ProfileForm, RegistrationForm
 from .models import (
     Book,
@@ -24,6 +24,7 @@ from django.conf import settings  # new
 from django.urls import reverse  # new
 from datetime import timedelta
 import stripe
+from django.db import transaction
 
 # Create your views here.
 
@@ -408,105 +409,105 @@ class ProfileView(View):
         return redirect("profile")
 
 
-class OrderView(View):
-    template_name = "place-order.html"
+# class OrderView(View):
+#     template_name = "place-order.html"
 
-    def get(self, request):
-        if not request.user.is_authenticated:
-            messages.error(
-                request, "You need to be logged in to place an order"
-            )
-            return redirect("login")
+#     def get(self, request):
+#         if not request.user.is_authenticated:
+#             messages.error(
+#                 request, "You need to be logged in to place an order"
+#             )
+#             return redirect("login")
 
-        cart = Cart.objects.filter(buyer=request.user).first()
-        if not cart:
-            messages.error(request, "No cart found for user")
-            return redirect("cart")
+#         cart = Cart.objects.filter(buyer=request.user).first()
+#         if not cart:
+#             messages.error(request, "No cart found for user")
+#             return redirect("cart")
 
-        cart_items = CartItem.objects.filter(cart=cart)
+#         cart_items = CartItem.objects.filter(cart=cart)
 
-        if not cart_items:
-            messages.error(request, "Your cart is empty")
-            return redirect("cart")
+#         if not cart_items:
+#             messages.error(request, "Your cart is empty")
+#             return redirect("cart")
 
-        # Calculate total price, tax, and final total
-        total_price = 0.0
-        tax_rate = 0.10
-        for item in cart_items:
-            item.total_price = float(item.book.price) * float(item.quantity)
-            total_price += item.total_price
+#         # Calculate total price, tax, and final total
+#         total_price = 0.0
+#         tax_rate = 0.10
+#         for item in cart_items:
+#             item.total_price = float(item.book.price) * float(item.quantity)
+#             total_price += item.total_price
 
-        context = {
-            "cart": cart,
-            "cart_items": cart_items,
-            "total_price": total_price,
-        }
+#         context = {
+#             "cart": cart,
+#             "cart_items": cart_items,
+#             "total_price": total_price,
+#         }
 
-        # return self.render_to_response(context)
-        return render(request, self.template_name, context)
+#         # return self.render_to_response(context)
+#         return render(request, self.template_name, context)
 
-    def post(self, request):
-        if not request.user.is_authenticated:
-            messages.error(
-                request, "You need to be logged in to place an order"
-            )
-            return redirect("login")
+#     def post(self, request):
+#         if not request.user.is_authenticated:
+#             messages.error(
+#                 request, "You need to be logged in to place an order"
+#             )
+#             return redirect("login")
 
-        cart = Cart.objects.filter(buyer=request.user).first()
+#         cart = Cart.objects.filter(buyer=request.user).first()
 
-        cart_items = CartItem.objects.filter(cart=cart)
-        print("Cart items:", cart_items)
-        total_price = 0.0
-        line_items = []
+#         cart_items = CartItem.objects.filter(cart=cart)
+#         print("Cart items:", cart_items)
+#         total_price = 0.0
+#         line_items = []
 
-        for item in cart_items:
-            item.total_price = float(item.book.price) * float(item.quantity)
-            total_price += item.total_price
+#         for item in cart_items:
+#             item.total_price = float(item.book.price) * float(item.quantity)
+#             total_price += item.total_price
 
-            line_items.append(
-                {
-                    "price_data": {
-                        "currency": "inr",
-                        "product_data": {
-                            "name": item.book.title,
-                            # "images": [item.book.image.url] if item.book.image else [],  # Ensure this is a list of URLs
-                        },
-                        "unit_amount": int(
-                            item.book.price * 100
-                        ),  # Use the price in rupees directly
-                    },
-                    "quantity": item.quantity,
-                }
-            )
+#             line_items.append(
+#                 {
+#                     "price_data": {
+#                         "currency": "inr",
+#                         "product_data": {
+#                             "name": item.book.title,
+#                             # "images": [item.book.image.url] if item.book.image else [],  # Ensure this is a list of URLs
+#                         },
+#                         "unit_amount": int(
+#                             item.book.price * 100
+#                         ),  # Use the price in rupees directly
+#                     },
+#                     "quantity": item.quantity,
+#                 }
+#             )
 
-        # Create the order
-        order = Order.objects.create(
-            buyer=request.user,
-            total_price=total_price,
-        )
+#         # Create the order
+#         order = Order.objects.create(
+#             buyer=request.user,
+#             total_price=total_price,
+#         )
 
-        for item in cart_items:
-            OrderItem.objects.create(
-                order=order,
-                book=item.book,
-                quantity=item.quantity,
-                unit_price=item.book.price,
-            )
+#         for item in cart_items:
+#             OrderItem.objects.create(
+#                 order=order,
+#                 book=item.book,
+#                 quantity=item.quantity,
+#                 unit_price=item.book.price,
+#             )
 
-        cart_items.delete()
+#         cart_items.delete()
 
-        stripe.api_key = settings.STRIPE_SECRET_KEY
+#         stripe.api_key = settings.STRIPE_SECRET_KEY
 
-        # Create the checkout session with dynamic line items
-        checkout_session = stripe.checkout.Session.create(
-            line_items=line_items,  # Use the dynamically created line items
-            mode="payment",
-            success_url=request.build_absolute_uri(
-                reverse("success", kwargs={"order_id": order.id})
-            ),
-        )
+#         # Create the checkout session with dynamic line items
+#         checkout_session = stripe.checkout.Session.create(
+#             line_items=line_items,  # Use the dynamically created line items
+#             mode="payment",
+#             success_url=request.build_absolute_uri(
+#                 reverse("success", kwargs={"order_id": order.id})
+#             ),
+#         )
 
-        return redirect(checkout_session.url, code=303)
+#         return redirect(checkout_session.url, code=303)
 
 
 class SuccessView(View):
@@ -666,3 +667,141 @@ class ReceivedOrdersView(View):
         }
 
         return render(request, self.template_name, context)
+
+# class StripeWebhookView(View):
+#     def post(self, request):
+#         payload = request.body
+#         sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+        
+#         try:
+#             event = stripe.Webhook.construct_event(
+#                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+#             )
+#         except ValueError as e:
+#             return JsonResponse({'error': str(e)}, status=400)
+#         except stripe.error.SignatureVerificationError as e:
+#             return JsonResponse({'error': str(e)}, status=400)
+
+#         # Handle the event
+#         if event['type'] == 'checkout.session.completed':
+#             session = event['data']['object']  # Contains the session details
+#             handle_successful_payment(session)
+
+#         return JsonResponse({'status': 'success'}, status=200)
+
+# def handle_successful_payment(session):
+#     # Implement logic to mark the order as paid
+#     order_id = session['metadata']['order_id']  # Get the order ID from metadata
+#     order = Order.objects.get(id=order_id)
+#     order.paid = True  # Assuming you have a paid field
+#     order.save()
+
+
+class OrderView(View):
+    template_name = "place-order.html"
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            messages.error(request, "You need to be logged in to place an order")
+            return redirect("login")
+
+        cart = Cart.objects.filter(buyer=request.user).first()
+        if not cart:
+            messages.error(request, "No cart found for user")
+            return redirect("cart")
+
+        cart_items = CartItem.objects.filter(cart=cart)
+
+        if not cart_items:
+            messages.error(request, "Your cart is empty")
+            return redirect("cart")
+
+        total_price, line_items = calculate_cart_totals(cart_items)
+
+        context = {
+            "cart": cart,
+            "cart_items": cart_items,
+            "total_price": total_price,
+        }
+
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            messages.error(request, "You need to be logged in to place an order")
+            return redirect("login")
+
+        cart = Cart.objects.filter(buyer=request.user).first()
+        cart_items = CartItem.objects.filter(cart=cart)
+
+        if not cart_items:
+            messages.error(request, "Your cart is empty")
+            return redirect("cart")
+
+        total_price, line_items = calculate_cart_totals(cart_items)
+
+        # Create the checkout session
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        checkout_session = stripe.checkout.Session.create(
+            line_items=line_items,
+            mode="payment",
+            success_url=request.build_absolute_uri(reverse("order_success")) + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=request.build_absolute_uri(reverse("cart")),
+            metadata={"user_id": request.user.id},  # Store user ID in metadata
+        )
+
+        return redirect(checkout_session.url, code=303)
+    
+   
+   
+
+
+
+class OrderSuccessView(View):
+    def get(self, request):
+        session_id = request.GET.get("session_id")
+        if not session_id:
+            messages.error(request, "Payment session not found.")
+            return redirect("cart")
+
+        # Retrieve the checkout session from Stripe
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+
+        user_id = checkout_session.metadata.user_id  # Retrieve the user ID from metadata
+        cart = Cart.objects.filter(buyer=user_id).first()
+
+        if not cart:
+            messages.error(request, "No cart found.")
+            return redirect("cart")
+
+        cart_items = CartItem.objects.filter(cart=cart)
+
+        if not cart_items:
+            messages.error(request, "Your cart is empty.")
+            return redirect("cart")
+
+        # order_view_instance = OrderView()
+        total_price, line_items = calculate_cart_totals(cart_items)
+
+        with transaction.atomic():
+            # Create the order
+            order = Order.objects.create(
+                buyer=cart.buyer,
+                total_price=total_price,
+            )
+
+            # Create order items
+            for item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    book=item.book,
+                    quantity=item.quantity,
+                    unit_price=item.book.price,
+                )
+
+            # Delete cart items
+            cart_items.delete()
+
+        messages.success(request, "Order placed successfully.")
+        return redirect(reverse("success", kwargs={"order_id": order.id}))  # Redirect to success view
