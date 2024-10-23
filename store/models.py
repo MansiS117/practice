@@ -103,6 +103,13 @@ class Order(TimestampModel):
     buyer = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True
     )
+    seller = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="sales",
+    )
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00
     )
@@ -111,7 +118,7 @@ class Order(TimestampModel):
     )  # Total price of the order
 
     def __str__(self):
-        return f"{self.buyer} "
+        return f"{self.buyer} - {self.seller}"
 
 
 class OrderItem(TimestampModel):
@@ -143,6 +150,15 @@ class Profile(TimestampModel):
 
     def __str__(self):
         return self.user.email
+
+
+class DailySalesReport(models.Model):
+    date = models.DateField(unique=True)
+    seller = models.ForeignKey(User, on_delete=models.CASCADE)
+    total_sales = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.seller.username} - Sales on {self.date}: ₹{self.total_sales}"
 
 
 # class Ratings(models.Model):
