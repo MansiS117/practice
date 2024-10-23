@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "store",
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -151,3 +152,19 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
 
 STRIPE_PUBLIC_KEY = config("STRIPE_PUBLIC_KEY")
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY")
+
+# settings.py
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'calculate-daily-sales': {
+        'task': 'store.tasks.calculate_daily_sales',  # Your task name
+        'schedule': crontab(hour=10, minute=0),
+          # Every day at 10:00 AM
+        # 'schedule': 10.0,
+    },
+}
