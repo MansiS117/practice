@@ -248,7 +248,10 @@ class AddToCartView(View):
                 "login"
             )  # Redirect to login if the user is not authenticated
 
-        book = get_object_or_404(Book, id=book_id)
+         # Use a transaction to ensure data integrity
+        with transaction.atomic():
+            # Lock the book row for updates
+            book = get_object_or_404(Book.objects.select_for_update(), id=book_id)
 
         if book.stock <= 0:
             messages.error(request, "No more books available in stock.")
@@ -305,7 +308,9 @@ class QuantityView(View):
         cart_item_id = request.POST.get("cart_item_id")
         quantity_action = request.POST.get("quantity_action")
 
-        cart_item = CartItem.objects.filter(id=cart_item_id).first()
+        
+        with transaction.atomic():
+            cart_item = CartItem.objects.select_for_update().filter(id=cart_item_id).first()
 
         if cart_item:
             book = cart_item.book  # Get the related book
