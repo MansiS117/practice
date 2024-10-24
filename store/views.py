@@ -19,6 +19,7 @@ from .models import (
     OrderItem,
     Profile,
     User,
+    DailySalesReport,
 )
 from django.conf import settings  # new
 from django.urls import reverse  # new
@@ -248,10 +249,12 @@ class AddToCartView(View):
                 "login"
             )  # Redirect to login if the user is not authenticated
 
-         # Use a transaction to ensure data integrity
+        # Use a transaction to ensure data integrity
         with transaction.atomic():
             # Lock the book row for updates
-            book = get_object_or_404(Book.objects.select_for_update(), id=book_id)
+            book = get_object_or_404(
+                Book.objects.select_for_update(), id=book_id
+            )
 
         if book.stock <= 0:
             messages.error(request, "No more books available in stock.")
@@ -308,9 +311,12 @@ class QuantityView(View):
         cart_item_id = request.POST.get("cart_item_id")
         quantity_action = request.POST.get("quantity_action")
 
-        
         with transaction.atomic():
-            cart_item = CartItem.objects.select_for_update().filter(id=cart_item_id).first()
+            cart_item = (
+                CartItem.objects.select_for_update()
+                .filter(id=cart_item_id)
+                .first()
+            )
 
         if cart_item:
             book = cart_item.book  # Get the related book
@@ -518,6 +524,7 @@ class OrderSuccessView(View):
                     book=item.book,
                     quantity=item.quantity,
                     unit_price=item.book.price,
+                    seller=item.book.seller,
                 )
 
             # Delete cart items
@@ -672,17 +679,55 @@ class ReceivedOrdersView(View):
             order_items__book__in=seller_books
         ).distinct()
 
-        # Count orders for each book
-        book_order_counts = {}
+        # Prepare context data
+        order_details = []
         for order in orders:
             for item in order.order_items.all():
-                if item.book not in book_order_counts:
-                    book_order_counts[item.book] = 0
-                book_order_counts[item.book] += item.quantity
+                if (
+                    item.seller == request.user
+                ):  # Ensure item is sold by the current seller
+                    order_details.append(
+                        {
+                            "order_id": order.id,
+                            "buyer": order.buyer.email,  # Assuming the User model has a username field
+                            "book_title": item.book.title,
+                            "quantity": item.quantity,
+                            "total_price": item.total_price,  # Total price for the item
+                        }
+                    )
 
         context = {
-            "orders": orders,
-            "book_order_counts": book_order_counts,
+            "order_details": order_details,
         }
 
         return render(request, self.template_name, context)
+
+
+class DailySalesReportView(View):
+    template_name = "sales_report.html"
+
+    def get(self, request):
+        # Check if the user is authenticated and is a seller
+        if (
+            request.user.is_authenticated
+            and request.user.user_type == "seller"
+        ):
+            today = timezone.now().date()
+            sales_report_today = DailySalesReport.objects.filter(
+                date=today, seller=request.user
+            ).first()
+            previous_reports = DailySalesReport.objects.filter(
+                seller=request.user
+            ).exclude(date=today)
+
+            context = {
+                "sales_report_today": sales_report_today,
+                "previous_reports": previous_reports,
+                # other context variables...
+            }
+            return render(request, self.template_name, context)
+
+        # If the user is not authenticated or not a seller, render a different page
+        return render(
+            request, "home.html"
+        )  # Replace with your desired template
