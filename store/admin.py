@@ -51,12 +51,22 @@ class BookAdmin(admin.ModelAdmin):
 
 
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ("cart", "book", "quantity")
+    list_display = ("id", "cart", "book", "quantity")
     list_display_links = ("cart", "book")
 
 
 class SalesReportAdmin(admin.ModelAdmin):
     list_display = ("id", "date", "seller", "total_sales")
+
+
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "buyer", "ordered_at", "total_price")
+    list_display_links = ("id", "buyer")
+
+
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "order", "seller", "book", "quantity", "unit_price")
+    list_display_links = ("id", "order", "book", "seller")
 
 
 admin.site.register(Category)
@@ -65,7 +75,7 @@ admin.site.register(Book, BookAdmin)
 admin.site.register(Cart)
 admin.site.register(CartItem, CartItemAdmin)
 admin.site.register(User, MyUserAdmin)
-admin.site.register(Order)
-admin.site.register(OrderItem)
+admin.site.register(Order, OrderAdmin)
+admin.site.register(OrderItem, OrderItemAdmin)
 admin.site.register(Profile)
 admin.site.register(DailySalesReport, SalesReportAdmin)
