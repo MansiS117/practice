@@ -2,6 +2,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 
+# from django.contrib.auth import views as auth_views
+
 from . import views
 from .views import (
     AddBook,
@@ -23,6 +25,11 @@ from .views import (
     SuccessView,
     OrderSuccessView,
     DailySalesReportView,
+    ResetPasswordView,
+    ResetDoneView,
+    ResetConfirmView,
+    ResetCompleteView,
+    CustomPasswordChangeView,
 )
 
 urlpatterns = [
@@ -67,6 +74,27 @@ urlpatterns = [
     ),
     path("order/success/", OrderSuccessView.as_view(), name="order_success"),
     path("success/<int:order_id>/", SuccessView.as_view(), name="success"),
+    path("password_reset/", ResetPasswordView.as_view(), name="reset"),
+    path(
+        "password_reset/done/",
+        ResetDoneView.as_view(),
+        name="password_reset_done",
+    ),
+    path(
+        "reset/<uidb64>/<token>/",
+        ResetConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
+    path(
+        "reset/done/",
+        ResetCompleteView.as_view(),
+        name="password_reset_complete",
+    ),
+    path(
+        "change-password/",
+        CustomPasswordChangeView.as_view(),
+        name="change_password",
+    ),
 ]
 if settings.DEBUG:
     urlpatterns += static(
