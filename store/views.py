@@ -738,19 +738,6 @@ class DailySalesReportView(View):
             request, "home.html"
         )  # Replace with your desired template
 
-
-# class ChangePasswordView(LoginRequiredMixin, PasswordChangeView):
-#     form_class = PasswordChangeForm
-#     template_name = "registration/change_pw.html"
-
-#     def get_success_url(self):
-#         user = self.request.user
-#         if user.user_type == "Seller":
-#             return reverse("seller_dashboard")
-#         else:
-#             return reverse("buyer_dashboard")
-
-
 class ResetPasswordView(auth_views.PasswordResetView):
     template_name = "password/password_reset_form.html"
     email_template_name = "password/password_reset_email.html"
@@ -768,28 +755,6 @@ class ResetConfirmView(auth_views.PasswordResetConfirmView):
 
 class ResetCompleteView(auth_views.PasswordResetCompleteView):
     template_name = "password/password_reset_complete.html"
-
-
-def change_password(request):
-    if request.method == "POST":
-        form = PasswordChangeForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(
-                request, user
-            )  # Keeps the user logged in after password change
-            messages.success(
-                request, "Your password was successfully updated!"
-            )
-            return redirect(
-                "profile"
-            )  # Redirect to the profile or dashboard page
-        else:
-            messages.error(request, "Please correct the error below.")
-    else:
-        form = PasswordChangeForm(request.user)
-
-    return render(request, "password/change_password.html", {"form": form})
 
 
 class CustomPasswordChangeView(PasswordChangeView):
