@@ -22,10 +22,16 @@ from .models import (
     DailySalesReport,
 )
 from django.conf import settings  # new
-from django.urls import reverse  # new
+from django.urls import reverse, reverse_lazy  # new
 from datetime import timedelta
 import stripe
 from django.db import transaction
+from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import PasswordChangeView
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import update_session_auth_hash
+
 
 # Create your views here.
 
@@ -731,3 +737,80 @@ class DailySalesReportView(View):
         return render(
             request, "home.html"
         )  # Replace with your desired template
+
+
+# class ChangePasswordView(LoginRequiredMixin, PasswordChangeView):
+#     form_class = PasswordChangeForm
+#     template_name = "registration/change_pw.html"
+
+#     def get_success_url(self):
+#         user = self.request.user
+#         if user.user_type == "Seller":
+#             return reverse("seller_dashboard")
+#         else:
+#             return reverse("buyer_dashboard")
+
+
+class ResetPasswordView(auth_views.PasswordResetView):
+    template_name = "password/password_reset_form.html"
+    email_template_name = "password/password_reset_email.html"
+    success_url = reverse_lazy("password_reset_done")
+
+
+class ResetDoneView(auth_views.PasswordResetDoneView):
+    template_name = "password/password_reset_done.html"
+
+
+class ResetConfirmView(auth_views.PasswordResetConfirmView):
+    template_name = "password/password_reset_confirm.html"
+    success_url = reverse_lazy("password_reset_complete")
+
+
+class ResetCompleteView(auth_views.PasswordResetCompleteView):
+    template_name = "password/password_reset_complete.html"
+
+
+def change_password(request):
+    if request.method == "POST":
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(
+                request, user
+            )  # Keeps the user logged in after password change
+            messages.success(
+                request, "Your password was successfully updated!"
+            )
+            return redirect(
+                "profile"
+            )  # Redirect to the profile or dashboard page
+        else:
+            messages.error(request, "Please correct the error below.")
+    else:
+        form = PasswordChangeForm(request.user)
+
+    return render(request, "password/change_password.html", {"form": form})
+
+
+class CustomPasswordChangeView(PasswordChangeView):
+    form_class = PasswordChangeForm  # Use Django's built-in PasswordChangeForm
+    template_name = "password/change_password.html"  # Custom template path
+    success_url = reverse_lazy("profile")  # Redirect after success
+
+    def form_valid(self, form):
+        """Override form_valid to add custom success message and keep the user logged in."""
+        user = form.save()  # Save the new password
+        update_session_auth_hash(self.request, user)  # Prevent logout
+        messages.success(
+            self.request, "Your password was successfully updated!"
+        )
+        return super().form_valid(
+            form
+        )  # Proceed with the normal success behavior
+
+    def form_invalid(self, form):
+        """Override form_invalid to show a custom error message."""
+        messages.error(self.request, "Please correct the error below.")
+        return super().form_invalid(
+            form
+        )  # Proceed with the normal error behavior
