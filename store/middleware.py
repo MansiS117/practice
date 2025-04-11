@@ -18,18 +18,17 @@ class BannedBooksMiddleware(MiddlewareMixin):
             hasattr(view_func, "view_class")
             and view_func.view_class == HomeView
         ):
+            # Initialize banned_book_ids as empty
+            banned_book_ids = []
+
             if request.user.is_authenticated:
-                try:
-                    profile = get_object_or_404(Profile, user=request.user)
+                # Use filter to check for profile existence
+                profile = Profile.objects.filter(user=request.user).first()
+
+                if profile:
                     country = profile.country
                     banned_book_ids = self.banned_books.get(country, [])
-                    print(f"Banned book IDs: {banned_book_ids}")
 
-                    # Set banned_book_ids in kwargs for HomeView
-                    view_kwargs["banned_book_ids"] = banned_book_ids
-
-                except Profile.DoesNotExist:
-                    view_kwargs["banned_book_ids"] = (
-                        []
-                    )  # Default to empty if profile doesn't exist
+            # Set banned_book_ids in kwargs for HomeView
+            view_kwargs["banned_book_ids"] = banned_book_ids
         return None
