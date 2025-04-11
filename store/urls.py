@@ -2,6 +2,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 
+# from django.contrib.auth import views as auth_views
+
 from . import views
 from .views import (
     AddBook,
@@ -20,6 +22,14 @@ from .views import (
     RemoveView,
     SearchView,
     UpdateBook,
+    SuccessView,
+    OrderSuccessView,
+    DailySalesReportView,
+    ResetPasswordView,
+    ResetDoneView,
+    ResetConfirmView,
+    ResetCompleteView,
+    CustomPasswordChangeView,
 )
 
 urlpatterns = [
@@ -46,7 +56,6 @@ urlpatterns = [
     path("logout", views.user_logout, name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("order/", OrderView.as_view(), name="order"),
-    path("checkout/", views.checkout, name="checkout"),
     path("update_profile/", ProfileView.as_view(), name="profile"),
     path("add_book/", AddBook.as_view(), name="new_book"),
     path(
@@ -57,6 +66,34 @@ urlpatterns = [
         "books/received-orders/",
         ReceivedOrdersView.as_view(),
         name="received_orders",
+    ),
+    path(
+        "daily-sales-report/",
+        DailySalesReportView.as_view(),
+        name="daily_sales_report",
+    ),
+    path("order/success/", OrderSuccessView.as_view(), name="order_success"),
+    path("success/<int:order_id>/", SuccessView.as_view(), name="success"),
+    path("password_reset/", ResetPasswordView.as_view(), name="reset"),
+    path(
+        "password_reset/done/",
+        ResetDoneView.as_view(),
+        name="password_reset_done",
+    ),
+    path(
+        "reset/<uidb64>/<token>/",
+        ResetConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
+    path(
+        "reset/done/",
+        ResetCompleteView.as_view(),
+        name="password_reset_complete",
+    ),
+    path(
+        "change-password/",
+        CustomPasswordChangeView.as_view(),
+        name="change_password",
     ),
 ]
 if settings.DEBUG:

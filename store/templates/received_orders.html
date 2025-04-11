@@ -10,6 +10,9 @@
                     <a class="list-group-item active bg-warning" href="{% url 'dashboard' %}">My Books</a>
                     <a class="list-group-item text-warning" href="{% url 'new_book' %}">Add Book</a>
                     <a class="list-group-item text-warning" href="{% url 'received_orders' %}">Received Orders</a>
+                    <a class="list-group-item text-warning" href="{% url 'daily_sales_report' %}">Daily Sales Report</a>
+                    <a class="list-group-item text-warning" href="{% url 'change_password' %}"> Change Password</a>
+
                 </ul>
                 <br>
                 <!-- SIDEBAR .//END -->
@@ -17,26 +20,20 @@
 
             <main class="col-md-9">
                 <h2>Received Orders</h2>
-                {% if orders %}
+                {% if order_details %}
                     <ul class="list-group">
-                        {% for order in orders %}
+                        {% for detail in order_details %}
                             <li class="list-group-item">
-                                <h5>Order ID: {{ order.id }}</h5>
-                                <p>Total Price: ₹{{ order.total_price }}</p>
-                                <ul>
-                                    {% for book, count in book_order_counts.items %}
-                                    <li>
-                                        <strong>{{ book.title }}</strong> - {{ count }}
-                                    </li>
-                                {% empty %}
-                                    <li>No books found.</li>
-                                {% endfor %}
-                                </ul>
+                                <h5>Order ID: {{ detail.order_id }}</h5>
+                                <p>Buyer: {{ detail.buyer }}</p>
+                                <p>Book: <strong>{{ detail.book_title }}</strong></p>
+                                <p>Quantity: {{ detail.quantity }}</p>
+                                <p>Total Price: ₹{{ detail.total_price }}</p>
                             </li>
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <p>No received orders found.</p>
+                    <p>No received orders found for this seller.</p>
                 {% endif %}
             </main>
         </div> <!-- row.// -->

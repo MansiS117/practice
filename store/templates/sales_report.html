@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="section-content padding-y bg">
+    <div class="container">
+        <div class="row">
+            <aside class="col-md-3">
+                <!-- SIDEBAR -->
+                <ul class="list-group">
+                    <a class="list-group-item active bg-warning" href="{% url 'dashboard' %}">My Books</a>
+                    <a class="list-group-item text-warning" href="{% url 'new_book' %}">Add Book</a>
+                    <a class="list-group-item text-warning" href="{% url 'received_orders' %}">Received Orders</a>
+                    <a class="list-group-item text-warning" href="{% url 'daily_sales_report' %}">Daily Sales Report</a>
+                    <a class="list-group-item text-warning" href="{% url 'change_password' %}"> Change Password</a>
+
+                </ul>
+                <br>
+                <!-- SIDEBAR .//END -->
+            </aside>
+
+            <main class="col-md-9">
+                <section class="section-content padding-y bg">
+                    <div class="container">
+                        <h2 class="text-center">Daily Sales Report</h2>
+
+                        <div class="card">
+                            <div class="card-body">
+                                {% if sales_report_today %}
+                                <h5>Date: {{ sales_report_today.date }}</h5>
+                                <p>Total Sales: ₹{{ sales_report_today.total_sales }}</p>
+                                {% else %}
+                                <p>No sales recorded for today.</p>
+                                {% endif %}
+
+                                <h5>Previous Reports:</h5>
+                                <ul>
+                                    {% for report in previous_reports %}
+                                    <li>Date: {{ report.date }} - Total Sales: ₹{{ report.total_sales }}</li>
+                                    {% empty %}
+                                    <li>No previous reports available.</li>
+                                    {% endfor %}
+                                </ul>
+
+                               
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div> <!-- row.// -->
+    </div>
+</section>
+{% endblock %}
