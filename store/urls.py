@@ -21,6 +21,7 @@ from .views import (
     SearchView,
     UpdateBook,
     SuccessView,
+    OrderSuccessView
 )
 
 urlpatterns = [
@@ -58,6 +59,7 @@ urlpatterns = [
         ReceivedOrdersView.as_view(),
         name="received_orders",
     ),
+     path('order/success/', OrderSuccessView.as_view(), name='order_success'),  
     path("success/<int:order_id>/", SuccessView.as_view(), name="success"),
 ]
 if settings.DEBUG:
