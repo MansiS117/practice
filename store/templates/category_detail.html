@@ -32,12 +32,21 @@
                     <a href="{% url 'book_detail' book.id %}" class="title">{{ book.title }}</a>
                     <div class="price mt-1">₹{{ book.price }}</div> <!-- price-wrap.//-->
                 </figcaption>
-                <div class="card-footer d-flex justify-content-end">
-                    {% if user_type == "buyer" %}  <!-- Checks if user is a buyer -->
-                        <a href="{% url 'add_to_cart' book.id %}"><span class="text-warning font-weight-bold">Add to Cart</span></a>
-                    {% else %}
-                        <span class="text-muted">You need to be a buyer to add items to your cart.</span>
-                    {% endif %}
+                <div class="card-footer d-flex justify-content-between align-items-end">
+                    <div>
+                        {% if book.stock <= 0 %}
+                            <span class="badge bg-danger">Out of Stock</span>
+                        {% else %}
+                            <span class="badge bg-success">In Stock</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-end">
+                        {% if user_type == "buyer" %}
+                            <a href="{% url 'add_to_cart' book.id %}"><span class="text-warning font-weight-bold">Add to Cart</span></a>
+                        {% else %}
+                            <span class="text-muted">You need to be a buyer to add items to your cart.</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>  <!-- col.// -->

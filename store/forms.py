@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import Book, Profile, User
+from django.forms import modelformset_factory
 
 
 class RegistrationForm(forms.ModelForm):
@@ -47,4 +48,7 @@ class BookForm(forms.ModelForm):
             "image",
             "price",
             "description",
+            "stock",
         )  # using tuple instead of list for memory optimization
+
+BookFormSet = modelformset_factory(Book, form = BookForm, extra =1)

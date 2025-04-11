@@ -8,8 +8,8 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, TemplateView
 from django.views.generic.detail import DetailView
-
-from .forms import BookForm, ProfileForm, RegistrationForm
+from .utils import calculate_cart_totals
+from .forms import BookForm, BookFormSet, ProfileForm, RegistrationForm
 from .models import (
     Book,
     Cart,
@@ -20,6 +20,11 @@ from .models import (
     Profile,
     User,
 )
+from django.conf import settings  # new
+from django.urls import reverse  # new
+from datetime import timedelta
+import stripe
+from django.db import transaction
 
 # Create your views here.
 
@@ -27,18 +32,29 @@ from .models import (
 # views.py
 
 
-class HomeView(TemplateView):
+class HomeView(View):
     template_name = "home.html"
 
-    def get(self, request):
+    def dispatch(self, request, *args, **kwargs):
+        # Retrieve banned_book_ids from kwargs if they exist
+        self.banned_book_ids = kwargs.get("banned_book_ids", [])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+
         categories = Category.objects.all()
-        books = Book.objects.order_by("created")
+        books = Book.objects.all()
+
+        # Filter out banned books if any
+        if self.banned_book_ids:
+            books = books.exclude(id__in=self.banned_book_ids)
+
         user_type = (
             request.user.user_type if request.user.is_authenticated else None
         )
         context = {
             "categories": categories,
-            "books": books,
+            "books": books.order_by("created"),  # Ensure ordering
             "user_type": user_type,
         }
         return render(request, self.template_name, context)
@@ -58,9 +74,8 @@ class CategoryDetailView(DetailView):
             context["user_type"] = self.request.user.user_type
         else:
             context["user_type"] = None
-        
+
         return context
-      
 
 
 class BookDetailView(View):
@@ -224,15 +239,40 @@ class CartView(View):
 
 # Add the book into the cart
 class AddToCartView(View):
-    template_name = "cart.html" 
-    def get(self, request, book_id):
-        book = get_object_or_404(Book, id=book_id)
+    template_name = "cart.html"
 
+    def get(self, request, book_id):
         # Ensure the user is authenticated
         if not request.user.is_authenticated:
             return redirect(
                 "login"
             )  # Redirect to login if the user is not authenticated
+
+         # Use a transaction to ensure data integrity
+        with transaction.atomic():
+            # Lock the book row for updates
+            book = get_object_or_404(Book.objects.select_for_update(), id=book_id)
+
+        if book.stock <= 0:
+            messages.error(request, "No more books available in stock.")
+            return redirect(
+                "cart"
+            )  # Redirect to cart or show an error message
+
+        # Check if the user has ordered this book in the last 30 days
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_order = Order.objects.filter(
+            buyer=request.user,
+            ordered_at__gte=thirty_days_ago,
+            order_items__book=book,  # Ensure this is related to the specific book
+        ).exists()
+
+        if recent_order:
+            messages.error(
+                request,
+                "You cannot add this book to your cart because you purchased it within the last 30 days.",
+            )
+            return redirect("cart")
 
         # Get or create a cart for the current user
         if book:
@@ -243,11 +283,20 @@ class AddToCartView(View):
 
             cart_item = CartItem.objects.filter(cart=cart, book=book).first()
             if not cart_item:
-                cart_item = CartItem(cart=cart, book=book, quantity=1)
-                cart_item.save()
+
+                if book.stock >= 1:  # Check if there is stock available
+                    cart_item = CartItem(cart=cart, book=book, quantity=1)
+                    cart_item.save()
+                    book.stock -= 1  # Reduce stock by 1
+                    book.save()  # Save the updated stock
             else:
-                cart_item.quantity += 1
-                cart_item.save()
+                if book.stock >= (
+                    cart_item.quantity + 1
+                ):  # Ensure enough stock for an increase
+                    cart_item.quantity += 1
+                    cart_item.save()
+                    book.stock -= 1  # Reduce stock by 1
+                    book.save()  # Save the updated stock
 
         return redirect("cart")
 
@@ -259,16 +308,30 @@ class QuantityView(View):
         cart_item_id = request.POST.get("cart_item_id")
         quantity_action = request.POST.get("quantity_action")
 
-        cart_item = CartItem.objects.filter(id=cart_item_id).first()
+        
+        with transaction.atomic():
+            cart_item = CartItem.objects.select_for_update().filter(id=cart_item_id).first()
 
         if cart_item:
+            book = cart_item.book  # Get the related book
+
             if quantity_action == "increase":
-                cart_item.quantity += 1
+                if book.stock > 0:  # Check if there's stock available
+                    cart_item.quantity += 1
+                    book.stock -= 1  # Decrease stock
+                    cart_item.save()
+                    book.save()  # Save the book instance to update stock
+                else:
+                    messages.error(
+                        request, "No more books available in stock."
+                    )
             elif quantity_action == "decrease":
                 if cart_item.quantity > 1:
                     cart_item.quantity -= 1
+                    book.stock += 1  # Increase stock when decreasing
 
             cart_item.save()
+            book.save()  # Save the book instance to update stock
 
         return redirect("cart")
 
@@ -281,10 +344,17 @@ class RemoveView(View):
         item = CartItem.objects.filter(id=item_id).first()
 
         if item:
-            item.delete()
-            messages.success(request, "item removed successfully")
+            # Update the stock based on the quantity being removed
+            book = item.book
+            book.stock += (
+                item.quantity
+            )  # Add back the entire quantity of this item
+            book.save()  # Save the book instance to update stock
+
+            item.delete()  # Remove the item from the cart
+            messages.success(request, "Item removed successfully")
         else:
-            messages.error(request, "item does not exist")
+            messages.error(request, "Item does not exist")
 
         return redirect("cart")
 
@@ -365,12 +435,7 @@ class OrderView(View):
             messages.error(request, "Your cart is empty")
             return redirect("cart")
 
-        # Calculate total price, tax, and final total
-        total_price = 0.0
-        tax_rate = 0.10
-        for item in cart_items:
-            item.total_price = float(item.book.price) * float(item.quantity)
-            total_price += item.total_price
+        total_price, line_items = calculate_cart_totals(cart_items)
 
         context = {
             "cart": cart,
@@ -378,7 +443,6 @@ class OrderView(View):
             "total_price": total_price,
         }
 
-        # return self.render_to_response(context)
         return render(request, self.template_name, context)
 
     def post(self, request):
@@ -389,76 +453,152 @@ class OrderView(View):
             return redirect("login")
 
         cart = Cart.objects.filter(buyer=request.user).first()
-
         cart_items = CartItem.objects.filter(cart=cart)
-        print("Cart items:", cart_items)
-        total_price = 0.0
 
-        for item in cart_items:
-            item.total_price = float(item.book.price) * float(item.quantity)
-            total_price += item.total_price
+        if not cart_items:
+            messages.error(request, "Your cart is empty")
+            return redirect("cart")
 
-        # Create the order
-        order = Order.objects.create(
-            buyer=request.user,
-            total_price=total_price,
+        total_price, line_items = calculate_cart_totals(cart_items)
+
+        # Create the checkout session
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        checkout_session = stripe.checkout.Session.create(
+            line_items=line_items,
+            mode="payment",
+            success_url=request.build_absolute_uri(reverse("order_success"))
+            + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=request.build_absolute_uri(reverse("cart")),
+            metadata={"user_id": request.user.id},  # Store user ID in metadata
         )
 
-        for item in cart_items:
-            OrderItem.objects.create(
-                order=order,
-                book=item.book,
-                quantity=item.quantity,
-                unit_price=item.book.price,
+        return redirect(checkout_session.url, code=303)
+
+
+class OrderSuccessView(View):
+    def get(self, request):
+        session_id = request.GET.get("session_id")
+        if not session_id:
+            messages.error(request, "Payment session not found.")
+            return redirect("cart")
+
+        # Retrieve the checkout session from Stripe
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+
+        user_id = (
+            checkout_session.metadata.user_id
+        )  # Retrieve the user ID from metadata
+        cart = Cart.objects.filter(buyer=user_id).first()
+
+        if not cart:
+            messages.error(request, "No cart found.")
+            return redirect("cart")
+
+        cart_items = CartItem.objects.filter(cart=cart)
+
+        if not cart_items:
+            messages.error(request, "Your cart is empty.")
+            return redirect("cart")
+
+        # order_view_instance = OrderView()
+        total_price, line_items = calculate_cart_totals(cart_items)
+
+        with transaction.atomic():
+            # Create the order
+            order = Order.objects.create(
+                buyer=cart.buyer,
+                total_price=total_price,
             )
 
-        cart_items.delete()
-        # print("Cart items deleted.")
+            # Create order items
+            for item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    book=item.book,
+                    quantity=item.quantity,
+                    unit_price=item.book.price,
+                )
 
-        return redirect("checkout")
+            # Delete cart items
+            cart_items.delete()
+
+        messages.success(request, "Order placed successfully.")
+        return redirect(
+            reverse("success", kwargs={"order_id": order.id})
+        )  # Redirect to success view
 
 
-def checkout(request):
-    return render(request, "order_complete.html")
+class SuccessView(View):
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)  # Fetch the order by ID
+        order_items = OrderItem.objects.filter(order=order)
+        customer = order.buyer  # Get the order items
+
+        context = {
+            "order": order,
+            "order_items": order_items,
+            "customer": customer,
+        }
+        return render(
+            request, "order_complete.html", context
+        )  # Create this template
 
 
 # add a new book for seller
+
+
 class AddBook(View):
     template_name = "add_book.html"
 
     def get(self, request):
         if not request.user.is_authenticated:
-            messages.error(request, "You need to add a book")
+            messages.error(request, "You need to login to add a book.")
             return redirect("login")
 
-        form = BookForm()
-        return render(request, "add_book.html", {"form": form})
-
-    def post(self, request):
-        if not request.user.is_authenticated:
-            messages.error(request, "You need to login")
-            return redirect("login")
         user_type = request.user.user_type
-        if request.user.user_type != "seller":
+        if user_type != "seller":
             messages.error(
                 request, "You are not authorized to view this page."
             )
             return redirect("home")
-        form = BookForm(request.POST, request.FILES)
-        if form.is_valid():
-            book = form.save(commit=False)
-            book.seller = request.user
-            book.save()
-            messages.success(request, "book created successfully!")
+
+        formset = BookFormSet(
+            queryset=Book.objects.none()
+        )  # Start with an empty formset
+        return render(request, self.template_name, {"formset": formset})
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            messages.error(request, "You need to login to add a book.")
+            return redirect("login")
+
+        user_type = request.user.user_type
+        if user_type != "seller":
+            messages.error(
+                request, "You are not authorized to view this page."
+            )
+            return redirect("home")
+
+        formset = BookFormSet(request.POST, request.FILES)
+
+        if formset.is_valid():
+            books = formset.save(commit=False)  # Get unsaved book instances
+            for book in books:
+                book.seller = request.user  # Assign the seller to each book
+                book.save()
+            messages.success(request, "Books created successfully!")
             return redirect("dashboard")
         else:
-            messages.error(request, "There was an error with your submission.")
+            messages.error(request, "There were errors with your submission.")
 
-        # If the form is not valid, re-render the form with error messages
-        return self.render_to_response({"form": form})
+        # If the formset is not valid, re-render the formset with error messages
+        return render(request, self.template_name, {"formset": formset})
 
 
 # update book for seller
+
+
 class UpdateBook(View):
     template_name = "add_book.html"
 
